@@ -1,0 +1,18 @@
+Manifest-Version: 1.0
+Archiver-Version: Plexus Archiver
+Created-By: Apache Maven
+Built-By: inder
+Build-Jdk: 1.6.0_24
+Bundle-ClassPath: .
+Bundle-ContactAddress: http://code.google.com/p/google-gson/
+Bundle-Description: Google Gson library
+Bundle-ManifestVersion: 2
+Bundle-Name: Gson
+Bundle-RequiredExecutionEnvironment: J2SE-1.5
+Bundle-SymbolicName: com.google.gson
+Bundle-Vendor: Google Gson Project
+Bundle-Version: 1.7
+Export-Package: com.google.gson;version=1.7.1, com.google.gson.annotat
+ ions;version=1.7.1, com.google.gson.reflect;version=1.7.1, com.google
+ .gson.stream;version=1.7.1, com.google.gson.internal;version=1.7.1
+
