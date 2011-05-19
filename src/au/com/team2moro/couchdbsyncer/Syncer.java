@@ -12,16 +12,17 @@ public class Syncer {
 	
     private int countReq;
     private Database database;
+    private Store store;
     
-	public Syncer(Database database) {
-		this.database = database;
+	public Syncer(Store store) {
+		this.store = store;
 	}
 	
-	public boolean updateStore(Store store) throws IOException {
-		return updateStore(store, null);
+	public boolean update(Database database) throws IOException {
+		return update(database, null);
 	}
 	
-	public boolean updateStore(Store store, StoreDownloadPolicy policy) throws IOException {
+	public boolean update(Database database, StoreDownloadPolicy policy) throws IOException {
 		
 		// fetch list of changes
         // example changes data:
@@ -59,7 +60,7 @@ public class Syncer {
         	//document.setRevision(revision);
         	//doc.setSequenceId(change.get("seq"));
         	
-        	updateStoreDocument(store, document, policy);
+        	updateDocument(database, document, policy);
         }
 
         // TODO: move this into DatabaseStore implementation ?
@@ -74,11 +75,11 @@ public class Syncer {
 		return false;
 	}
 	
-	public boolean updateStoreDocument(Store store, Document document) throws IOException {
-		return updateStoreDocument(store, document, null);
+	public boolean updateDocument(Database database, Document document) throws IOException {
+		return updateDocument(database, document, null);
 	}
 	
-	public boolean updateStoreDocument(Store store, Document document, StoreDownloadPolicy policy) throws IOException {
+	public boolean updateDocument(Database database, Document document, StoreDownloadPolicy policy) throws IOException {
     	boolean download = !document.isDesignDocument();
     	int priority = Thread.NORM_PRIORITY;
     	Log.d(TAG, "update store document: " + document.getDocumentId());

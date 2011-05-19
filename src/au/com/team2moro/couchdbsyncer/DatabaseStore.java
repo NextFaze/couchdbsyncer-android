@@ -91,6 +91,10 @@ public class DatabaseStore implements Store {
 	public void purge() {
 		// TODO
 	}
+	public void purge(Database database) {
+		// TODO
+	}
+
 	public int getSequenceId(Database database) {
 		return database.getSequenceId();
 	}
@@ -99,10 +103,6 @@ public class DatabaseStore implements Store {
 		// TODO
 	}
 	public void updateAttachment(Document document, Attachment attachment) {
-		// TODO
-	}
-	
-	public void addDatabase(String name, URL url, String username, String password) {
 		// TODO
 	}
 	
@@ -115,7 +115,7 @@ public class DatabaseStore implements Store {
 		// TODO
 		return null;
 	}
-		
+
 	public List<Document> getDocuments() {
 
 		SQLiteDatabase db = this.dbHelper.getReadableDatabase();
@@ -157,12 +157,51 @@ public class DatabaseStore implements Store {
 		return null;
 	}
 	
+	/**
+	 * return a list of all databases managed by this store
+	 * @return
+	 */
 	public List<Database> getDatabases() {
 		return dbHelper.getDatabases();
 	}
 
+	/**
+	 * return the database with the given name
+	 * @param name The name of the database to find
+	 * @return A database object, or null if the database was not found
+	 */
 	public Database getDatabase(String name) {
-		return null;  // TODO
+		for(Database database : getDatabases()) {
+			if(database.getName().equals(name))
+				return database;
+		}
+		return null;  // not found
+	}
+	
+
+	public Database addDatabase(String name, URL url) {
+		return addDatabase(name, url, null, null);
+	}
+	
+	public Database addDatabase(String name, URL url, String username, String password) {
+		Database database = new Database(name, url);
+		database.setUsername(username);
+		database.setPassword(password);
+		
+		ContentValues values = new ContentValues();
+		values.put("name", database.getName());
+		values.put("url", database.getUrl().toString());
+		values.put("sequence_id", database.getSequenceId());
+		values.put("doc_del_count", database.getDocDelCount());
+		values.put("db_name", database.getDbName());
+		values.put("username", database.getUsername());
+		values.put("password", database.getPassword());
+		
+		SQLiteDatabase dbrw = this.dbHelper.getWritableDatabase();
+		dbrw.insert("databases", null, values);
+		dbrw.close();
+		
+		return database;
 	}
 	
 	/**

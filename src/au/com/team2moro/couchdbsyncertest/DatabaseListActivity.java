@@ -1,5 +1,6 @@
 package au.com.team2moro.couchdbsyncertest;
 
+import java.net.URL;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -11,6 +12,7 @@ import android.widget.ListView;
 import android.widget.SimpleAdapter;
 import au.com.team2moro.couchdbsyncer.Database;
 import au.com.team2moro.couchdbsyncer.DatabaseStore;
+import au.com.team2moro.couchdbsyncer.Syncer;
 
 public class DatabaseListActivity extends Activity {
 	public static final String TAG = "DatabaseListActivity";
@@ -27,21 +29,24 @@ public class DatabaseListActivity extends Activity {
         
         lv = (ListView) findViewById(R.id.list);
        
-        /*
+        // sync database
+        // adds database record if it doesn't exist
         try {
-        	URL url = new URL("http://example.com:5984/dbname");
-        	DatabaseStore store = new DatabaseStore(this, "db", url);
-        	Syncer syncer = new Syncer(url, "username", "password");
-        	syncer.updateStore(store);
+        	URL url = new URL("http://localhost:5984/testdb");
+        	DatabaseStore dbstore = ((TestApplication) getApplication()).getDatabaseStore();
+        	Database database = dbstore.getDatabase("test");
+        	if(database == null) {
+        		database = dbstore.addDatabase("test", url);        		
+        	}
+        	Syncer syncer = new Syncer(dbstore);
+        	syncer.updateDatabase(database);
         } catch(Exception e) {
         	Log.d(TAG, "exception: " + e);
         }
-        */
     }
     
     @Override
 	protected void onStart() {
-		// TODO Auto-generated method stub
 		super.onStart();
 		
 		updateListView();

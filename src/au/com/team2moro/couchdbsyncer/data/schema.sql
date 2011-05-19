@@ -7,21 +7,23 @@ doc_update_seq INTEGER,
 db_name TEXT,
 url TEXT,
 username TEXT,
-password TEXT
+password TEXT,
+UNIQUE (name)
 );
 
 -- SPLIT
 
 CREATE TABLE documents (
 _id INTEGER PRIMARY KEY AUTOINCREMENT,
-doc_id TEXT,          
 database_id INTEGER,  
+doc_id TEXT,          
 revision TEXT,
 content TEXT,         
 object BLOB,        
 parent_id TEXT,
 type TEXT,
-tags TEXT
+tags TEXT,
+UNIQUE (database_id, doc_id)
 );
 
 -- SPLIT
@@ -30,9 +32,10 @@ CREATE TABLE attachments (
 _id INTEGER PRIMARY KEY AUTOINCREMENT,
 document_id INTEGER, 
 doc_id TEXT,
+filename TEXT,
 content BLOB,
 length INTEGER,
 content_type TEXT,
-filename TEXT,
-unfetched_changes BOOLEAN
+unfetched_changes BOOLEAN,
+UNIQUE (document_id, filename)
 );
