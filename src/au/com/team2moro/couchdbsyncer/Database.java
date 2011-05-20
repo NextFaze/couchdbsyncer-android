@@ -5,8 +5,7 @@ import java.net.URL;
 public class Database {
 	private URL url;
 	private String name, dbName;
-	private String username, password;
-	private int sequenceId, docDelCount, docUpdateSeq;
+	private int sequenceId, docDelCount, docUpdateSeq, databaseId;
 	
 	public Database(String name, URL url) {
 		this.name = name;
@@ -14,6 +13,15 @@ public class Database {
 		this.sequenceId = 0;
 		this.docDelCount = 0;
 		this.docUpdateSeq = 0;
+		this.databaseId = -1;
+	}
+
+	public int getDatabaseId() {
+		return databaseId;
+	}
+
+	public void setDatabaseId(int databaseId) {
+		this.databaseId = databaseId;
 	}
 
 	public String getName() {
@@ -24,20 +32,8 @@ public class Database {
 		return url;
 	}
 	
-	public String getUsername() {
-		return username;
-	}
-
-	public void setUsername(String username) {
-		this.username = username;
-	}
-
-	public String getPassword() {
-		return password;
-	}
-
-	public void setPassword(String password) {
-		this.password = password;
+	public void setUrl(URL url) {
+		this.url = url;
 	}
 
 	public String getDbName() {

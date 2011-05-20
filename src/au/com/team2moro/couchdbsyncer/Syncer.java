@@ -11,18 +11,28 @@ public class Syncer {
 	public static final String TAG = "Syncer";
 	
     private int countReq;
-    private Database database;
     private Store store;
+    private Database database;
+    private String username, password;
+    private boolean aborted;
     
-	public Syncer(Store store) {
+	public Syncer(Store store, Database database) {
 		this.store = store;
+		this.database = database;
+		this.aborted = false;
 	}
 	
-	public boolean update(Database database) throws IOException {
-		return update(database, null);
+	public Syncer(Store store, Database database, String username, String password) {
+		this(store, database);
+		this.username = username;
+		this.password = password;
 	}
 	
-	public boolean update(Database database, StoreDownloadPolicy policy) throws IOException {
+	public boolean update() throws IOException {
+		return update(null);
+	}
+	
+	public boolean update(StoreDownloadPolicy policy) throws IOException {
 		
 		// fetch list of changes
         // example changes data:
@@ -50,7 +60,7 @@ public class Syncer {
         // convert change list to document objects
         for(Map<String, Object> change : results) {
     		//Log.d(TAG, "processing change: " + change);
-
+        	Integer seqId = (Integer) change.get("seq");
         	String documentId = (String) change.get("id");
         	//String revision = (String) change.get("revision");
         	Boolean deleted = (Boolean) change.get("deleted");
@@ -60,7 +70,7 @@ public class Syncer {
         	//document.setRevision(revision);
         	//doc.setSequenceId(change.get("seq"));
         	
-        	updateDocument(database, document, policy);
+        	updateDocument(document, seqId, policy);
         }
 
         // TODO: move this into DatabaseStore implementation ?
@@ -75,14 +85,14 @@ public class Syncer {
 		return false;
 	}
 	
-	public boolean updateDocument(Database database, Document document) throws IOException {
-		return updateDocument(database, document, null);
+	public boolean updateDocument(Document document, int sequenceId) throws IOException {
+		return updateDocument(document, sequenceId, null);
 	}
 	
-	public boolean updateDocument(Database database, Document document, StoreDownloadPolicy policy) throws IOException {
+	public boolean updateDocument(Document document, int sequenceId, StoreDownloadPolicy policy) throws IOException {
     	boolean download = !document.isDesignDocument();
     	int priority = Thread.NORM_PRIORITY;
-    	Log.d(TAG, "update store document: " + document.getDocumentId());
+    	Log.d(TAG, "update document: " + document.getDocId());
     	
     	if(policy != null) {
     		download = policy.getDocumentDownload(document);
@@ -90,37 +100,35 @@ public class Syncer {
     	}
     	
     	if(!download) return false;
-    	
-    	/*
-    	   if(aborted) {
-    	        LOG(@"syncer is aborted, returning");
-    	        return;
-    	    }
-    	    */
+
+    	if(aborted) {
+    		Log.d(TAG, "syncer is aborted, returning");
+    		return false;
+    	}
 
     	if(document.isDeleted()) {
     		// document deleted 
-    		store.updateDocument(document);
+    		store.updateDocument(database, document, sequenceId);
     	}
     	else {
     		// need to fetch document
     		// TODO: use BulkFetcher
     		
         	Fetcher fetcher = getFetcher();
-    		URL documentURL = new URL(database.getUrl() + "/" + document.getDocumentId());
+    		URL documentURL = new URL(database.getUrl() + "/" + document.getDocId());
     		Map<String, Object> object = fetcher.fetchJSON(documentURL);
-    		document.setObject(object);
-    		store.updateDocument(document);
+    		document.setContent(object, true);
+    		store.updateDocument(database, document, sequenceId);
     	}
  
     	return false; // TODO
 	}
 	
-	public boolean updateStoreAttachment(Store store, Document document, Attachment attachment) throws IOException {
-		return updateStoreAttachment(store, document, attachment, null);
+	public boolean updateAttachment(Document document, Attachment attachment) throws IOException {
+		return updateAttachment(document, attachment, null);
 	}
 
-	public boolean updateStoreAttachment(Store store, Document document, Attachment attachment, StoreDownloadPolicy policy) throws IOException {
+	public boolean updateAttachment(Document document, Attachment attachment, StoreDownloadPolicy policy) throws IOException {
     	boolean download = true;
     	int priority = 4;  //  lower priority than normal
     	if(policy != null) {
@@ -129,6 +137,11 @@ public class Syncer {
     	}
     	
     	if(!download) return false;
+    	
+    	if(aborted) {
+    		Log.d(TAG, "syncer is aborted, returning");
+    		return false;
+    	}
     	
         if(document.isDeleted()) {
             // document is deleted
@@ -142,7 +155,7 @@ public class Syncer {
     	Fetcher fetcher = getFetcher();
     	byte[] content = fetcher.fetchBytes(attachmentURL);
 		attachment.setContent(content);
-		store.updateAttachment(document, attachment);
+		store.updateAttachment(database, document, attachment);
 		
 		return false; 
 	}
@@ -162,7 +175,7 @@ public class Syncer {
 	}
 	
 	private Fetcher getFetcher() {
-		Fetcher fetcher = new Fetcher(database.getUsername(), database.getPassword());
+		Fetcher fetcher = new Fetcher(username, password);
 		return fetcher;
 	}
 }

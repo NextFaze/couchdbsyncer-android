@@ -29,7 +29,7 @@ public class BulkFetcher extends Fetcher {
 	    	Map<String, Object> object = (Map<String, Object>) row.get("doc");
 	    	String documentId = (String) row.get("id");
 	    	Document document = new Document(documentId);
-	    	document.setObject(object);
+	    	document.setContent(object);
 	    	results.add(document);
 	    }
 	    
@@ -39,7 +39,7 @@ public class BulkFetcher extends Fetcher {
 	private String getHttpBody() {
 		List<String> keys = new ArrayList<String>();
 		for(Document document : documents) {
-			keys.add(document.getDocumentId());
+			keys.add(document.getDocId());
 		}
 		Gson gson = new Gson();
 		return gson.toJson(keys);

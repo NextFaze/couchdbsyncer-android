@@ -3,10 +3,22 @@ package au.com.team2moro.couchdbsyncer;
 public class Attachment {
 
 	private byte[] content;
-	String filename;
-	int revpos;
+	String filename, contentType, docId;
+	int revision, length, documentId, attachmentId;
+	boolean stale;
 	
-	public Attachment() {
+	public Attachment(String filename) {
+		this.filename = filename;
+		this.attachmentId = -1;
+		this.documentId = -1;
+	}
+
+	public int getAttachmentId() {
+		return attachmentId;
+	}
+
+	public void setAttachmentId(int attachmentId) {
+		this.attachmentId = attachmentId;
 	}
 
 	public byte[] getContent() {
@@ -17,19 +29,56 @@ public class Attachment {
 		this.content = content;
 	}
 
+	public int getLength() {
+		return length;
+	}
+
+	public void setLength(int length) {
+		this.length = length;
+	}
+
+	public String getDocId() {
+		return docId;
+	}
+
+	public void setDocId(String docId) {
+		this.docId = docId;
+	}
+
 	public String getFilename() {
 		return filename;
 	}
 
-	public void setFilename(String filename) {
-		this.filename = filename;
+	public int getRevision() {
+		return revision;
 	}
 
-	public int getRevpos() {
-		return revpos;
+	public void setRevision(int revision) {
+		this.revision = revision;
 	}
 
-	public void setRevpos(int revpos) {
-		this.revpos = revpos;
+	public String getContentType() {
+		return contentType;
 	}
+
+	public void setContentType(String contentType) {
+		this.contentType = contentType;
+	}
+
+	public int getDocumentId() {
+		return documentId;
+	}
+
+	public void setDocumentId(int documentId) {
+		this.documentId = documentId;
+	}
+
+	public boolean isStale() {
+		return stale;
+	}
+
+	public void setStale(boolean stale) {
+		this.stale = stale;
+	}
+	
 }

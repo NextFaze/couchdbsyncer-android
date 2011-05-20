@@ -37,11 +37,11 @@ public class NewDatabaseActivity extends Activity implements OnClickListener {
 		try {
 			String name = editName.getText().toString();
 			String url = editURL.getText().toString();
-			String username = editUser.getText().toString();
-			String password = editPass.getText().toString();
+			//String username = editUser.getText().toString();
+			//String password = editPass.getText().toString();
 			
 			DatabaseStore dbstore = ((TestApplication) getApplication()).getDatabaseStore();
-			dbstore.addDatabase(name, new URL(url), username, password);
+			dbstore.addDatabase(name, new URL(url));
 			
 			// go back to previous activity
 			finish();  

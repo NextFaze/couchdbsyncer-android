@@ -11,12 +11,12 @@ public interface Store {
 	 * Create/Update/Delete a document from the store
 	 * @param document The new document
 	 */
-	void updateDocument(Document document);
+	void updateDocument(Database database, Document document, int sequenceId);
 
 	/**
 	 * Create/Update/Delete an attachment from the store
 	 * @param document The document containing the attachment
 	 * @param attachment The attachment to add/update/delete
 	 */
-	void updateAttachment(Document document, Attachment attachment);
+	void updateAttachment(Database database, Document document, Attachment attachment);
 }

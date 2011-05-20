@@ -1,5 +1,7 @@
 package au.com.team2moro.couchdbsyncertest;
 
+import java.io.PrintWriter;
+import java.io.StringWriter;
 import java.net.URL;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -28,20 +30,21 @@ public class DatabaseListActivity extends Activity {
         setContentView(R.layout.database_list_activity);
         
         lv = (ListView) findViewById(R.id.list);
-       
+
         // sync database
         // adds database record if it doesn't exist
         try {
-        	URL url = new URL("http://localhost:5984/testdb");
+        	URL url = new URL("http://192.168.1.134:5984/imvs");
         	DatabaseStore dbstore = ((TestApplication) getApplication()).getDatabaseStore();
         	Database database = dbstore.getDatabase("test");
         	if(database == null) {
-        		database = dbstore.addDatabase("test", url);        		
+        		database = dbstore.addDatabase("test", url);    		
         	}
-        	Syncer syncer = new Syncer(dbstore);
-        	syncer.updateDatabase(database);
+        	database.setUrl(url);
+        	Syncer syncer = new Syncer(dbstore, database);
+        	syncer.update();
         } catch(Exception e) {
-        	Log.d(TAG, "exception: " + e);
+        	Log.d(TAG, "exception: " + getStackTraceAsString(e));
         }
     }
     
@@ -77,4 +80,16 @@ public class DatabaseListActivity extends Activity {
         	lv.setAdapter(adapter);
         }
     }
+	
+	private String getStackTraceAsString(Exception exception) 
+	{ 
+	StringWriter sw = new StringWriter(); 
+	PrintWriter pw = new PrintWriter(sw); 
+	pw.print(" [ "); 
+	pw.print(exception.getClass().getName()); 
+	pw.print(" ] "); 
+	pw.print(exception.getMessage()); 
+	exception.printStackTrace(pw); 
+	return sw.toString(); 
+	}
 }
