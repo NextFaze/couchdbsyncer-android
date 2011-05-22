@@ -29,6 +29,7 @@ CREATE TABLE attachments (
 _id INTEGER PRIMARY KEY AUTOINCREMENT,
 document_id INTEGER, 
 doc_id TEXT,
+revision INTEGER,
 filename TEXT,
 content BLOB,
 length INTEGER,

@@ -19,8 +19,8 @@ public class Document {
 	private Map<String, Object> content;
 	private Set<Attachment> attachments;
 
-	public Document(String documentId) {
-		this.docId = documentId;
+	public Document(String docId) {
+		this.docId = docId;
 		this.attachments = new HashSet<Attachment>();
 	}
 
@@ -120,12 +120,14 @@ public class Document {
 			// populate attachment data from the _attachments hash
 			// "_attachments":{"image.jpg":{"content_type":"image/jpeg","revpos":2,"length":13138,"stub":true}}
 			Map<String, Map<String, Object>> attachments = (Map<String, Map<String, Object>>) get("_attachments");
-			for(String filename : attachments.keySet()) {
-				Map<String, Object> info = attachments.get(filename);
-				Attachment attachment = new Attachment(filename);
-				attachment.setContentType((String) info.get("content_type"));
-				attachment.setRevision((Integer) info.get("revpos"));
-				attachment.setLength((Integer) info.get("length"));
+			if(attachments != null) {
+				for(String filename : attachments.keySet()) {
+					Map<String, Object> info = attachments.get(filename);
+					Attachment attachment = new Attachment(filename);
+					attachment.setContentType((String) info.get("content_type"));
+					attachment.setRevision((Integer) info.get("revpos"));
+					attachment.setLength((Integer) info.get("length"));
+				}
 			}
 		}
 	}

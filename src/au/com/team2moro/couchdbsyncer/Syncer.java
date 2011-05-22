@@ -4,6 +4,7 @@ import java.io.IOException;
 import java.net.URL;
 import java.util.Collection;
 import java.util.Map;
+import java.util.Set;
 
 import android.util.Log;
 
@@ -28,11 +29,11 @@ public class Syncer {
 		this.password = password;
 	}
 	
-	public boolean update() throws IOException {
-		return update(null);
+	public void update() throws IOException {
+		update(null);
 	}
 	
-	public boolean update(StoreDownloadPolicy policy) throws IOException {
+	public void update(StoreDownloadPolicy policy) throws IOException {
 		
 		// fetch list of changes
         // example changes data:
@@ -51,7 +52,7 @@ public class Syncer {
 		if(changes == null) {
 			// no changes
 			Log.d(TAG, "no change list found");
-			return false;
+			return;
 		}
 		
 		Collection<Map> results = (Collection<Map>) changes.get("results");
@@ -62,49 +63,37 @@ public class Syncer {
     		//Log.d(TAG, "processing change: " + change);
         	Integer seqId = (Integer) change.get("seq");
         	String documentId = (String) change.get("id");
-        	//String revision = (String) change.get("revision");
         	Boolean deleted = (Boolean) change.get("deleted");
         	
         	Document document = new Document(documentId);
         	document.setDeleted(deleted == null ? false : deleted.booleanValue());
-        	//document.setRevision(revision);
-        	//doc.setSequenceId(change.get("seq"));
         	
         	updateDocument(document, seqId, policy);
         }
 
-        // TODO: move this into DatabaseStore implementation ?
-        /*
-        // download unfetched attachments.
-        List<Attachment> unfetchedAttachments = store.getUnfetchedAttachments();
-        for(Attachment attachment : unfetchedAttachments) {
-        	updateStoreAttachment(store, attachment, policy);
-        }
-        */
-
-		return false;
+		return;
 	}
 	
-	public boolean updateDocument(Document document, int sequenceId) throws IOException {
-		return updateDocument(document, sequenceId, null);
+	public void updateDocument(Document document, int sequenceId) throws IOException {
+		updateDocument(document, sequenceId, null);
 	}
 	
-	public boolean updateDocument(Document document, int sequenceId, StoreDownloadPolicy policy) throws IOException {
+	public void updateDocument(Document document, int sequenceId, StoreDownloadPolicy policy) throws IOException {
     	boolean download = !document.isDesignDocument();
     	int priority = Thread.NORM_PRIORITY;
     	Log.d(TAG, "update document: " + document.getDocId());
     	
+    	if(aborted) {
+    		Log.d(TAG, "syncer is aborted, returning");
+    		return;
+    	}
+
     	if(policy != null) {
     		download = policy.getDocumentDownload(document);
     		if(download) priority = policy.getDocumentPriority(document);
     	}
     	
-    	if(!download) return false;
-
-    	if(aborted) {
-    		Log.d(TAG, "syncer is aborted, returning");
-    		return false;
-    	}
+    	if(!download) return;  // policy says not to download document
 
     	if(document.isDeleted()) {
     		// document deleted 
@@ -113,51 +102,59 @@ public class Syncer {
     	else {
     		// need to fetch document
     		// TODO: use BulkFetcher
-    		
         	Fetcher fetcher = getFetcher();
     		URL documentURL = new URL(database.getUrl() + "/" + document.getDocId());
     		Map<String, Object> object = fetcher.fetchJSON(documentURL);
     		document.setContent(object, true);
     		store.updateDocument(database, document, sequenceId);
     	}
- 
-    	return false; // TODO
+
+        // download unfetched attachments.
+        Set<Attachment> attachments = document.getAttachments();
+        if(attachments != null) {
+        	for(Attachment attachment : attachments) {
+        		if(!attachment.isStale()) continue;
+        		
+        		// stale attachment, download it
+        		updateAttachment(document, attachment, policy);
+        	}
+        }
+        
+    	return;
 	}
 	
-	public boolean updateAttachment(Document document, Attachment attachment) throws IOException {
-		return updateAttachment(document, attachment, null);
+	public void updateAttachment(Document document, Attachment attachment) throws IOException {
+		updateAttachment(document, attachment, null);
 	}
 
-	public boolean updateAttachment(Document document, Attachment attachment, StoreDownloadPolicy policy) throws IOException {
+	public void updateAttachment(Document document, Attachment attachment, StoreDownloadPolicy policy) throws IOException {
     	boolean download = true;
     	int priority = 4;  //  lower priority than normal
+
+    	if(aborted) {
+    		Log.d(TAG, "syncer is aborted, returning");
+    		return;
+    	}
+        if(document.isDeleted()) {
+            // document is deleted (we shouldn't get here)
+            return;  // do nothing.
+        }
     	if(policy != null) {
     		download = policy.getAttachmentDownload(attachment);
     		if(download) priority = policy.getAttachmentPriority(attachment);
     	}
     	
-    	if(!download) return false;
-    	
-    	if(aborted) {
-    		Log.d(TAG, "syncer is aborted, returning");
-    		return false;
-    	}
-    	
-        if(document.isDeleted()) {
-            // document is deleted
-            return false;  // do nothing.  TODO: call update attachment?
-        }
-        
-    	// TODO: don't fetch attachment if it is already in the queue to be fetched
+    	if(!download) return;  // policy says not to download attachment    	
         
         // fetch attachment
     	URL attachmentURL = new URL(database.getUrl() + "/" + document.getDocumentId() + "/" + attachment.getFilename());
     	Fetcher fetcher = getFetcher();
     	byte[] content = fetcher.fetchBytes(attachmentURL);
 		attachment.setContent(content);
+		attachment.setLength(content.length);
 		store.updateAttachment(database, document, attachment);
 		
-		return false; 
+		return; 
 	}
 	
 	public Map<String, Object> getDatabaseInformation() {

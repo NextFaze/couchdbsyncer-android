@@ -34,7 +34,7 @@ public class DatabaseListActivity extends Activity {
         // sync database
         // adds database record if it doesn't exist
         try {
-        	URL url = new URL("http://192.168.1.134:5984/imvs");
+        	URL url = new URL("http://192.168.1.10:5984/test");
         	DatabaseStore dbstore = ((TestApplication) getApplication()).getDatabaseStore();
         	Database database = dbstore.getDatabase("test");
         	if(database == null) {

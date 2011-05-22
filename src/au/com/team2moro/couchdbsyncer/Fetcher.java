@@ -24,6 +24,7 @@ import android.util.Log;
 public class Fetcher {
 	
 	public static final String TAG = "Fetcher";
+	public static final int BUFFER_SIZE = 8196;
 	private String username, password;
 	
 	public Fetcher() {
@@ -58,14 +59,14 @@ public class Fetcher {
 		
 		String contentType = urlConnection.getContentType();
 	    InputStream raw = urlConnection.getInputStream();
-	    InputStream in = new BufferedInputStream(raw);
+	    InputStream in = new BufferedInputStream(raw, BUFFER_SIZE);
 	    ByteArrayOutputStream byteStream = new ByteArrayOutputStream();
 	    
 	    int bytesRead = 0;
 	    int offset = 0;
-	    byte[] data = new byte[1024];
+	    byte[] data = new byte[BUFFER_SIZE];
 	    while (true) {
-	      bytesRead = in.read(data, 0, 1024);
+	      bytesRead = in.read(data, 0, BUFFER_SIZE);
 	      if (bytesRead == -1)
 	        break;
 	      

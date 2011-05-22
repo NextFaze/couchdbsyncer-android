@@ -24,10 +24,9 @@ public class DatabaseStore implements Store {
 	private DbHelper dbHelper;
 	
 	private static final String[] DB_DATABASE_COLUMNS = { "_id", "name", "sequence_id", "doc_del_count", "db_name", "url" };
-	private static final String[] DB_DOCUMENT_COLUMNS = { "_id", "doc_id", "database_id", "revision", "content", "object", "parent_id", "type", "tags" };
-	private static final String[] DB_ATTACHMENT_COLUMNS = { "_id", "document_id", "doc_id", "filename", "length", "content_type", "stale", "content" };
+	private static final String[] DB_DOCUMENT_COLUMNS = { "_id", "doc_id", "database_id", "revision", "content", "parent_id", "type", "tags" };
+	private static final String[] DB_ATTACHMENT_COLUMNS = { "_id", "document_id", "doc_id", "revision", "filename", "length", "content_type", "stale", "content" };
 	private static final String[] DB_TYPE_COLUMN = { "type" };
-	private static final String[] DB_NAME_COLUMN = { "name" };
 
 	public DatabaseStore(Context context) {
 		context = context.getApplicationContext();
@@ -76,10 +75,7 @@ public class DatabaseStore implements Store {
 			
 			oldAttachments.addAll(dbDocument.getAttachments());
 		}
-		
-	    //NSMutableSet *old = [NSMutableSet setWithSet:document.attachments];
-	    //NSMutableSet *new = [NSMutableSet set];
-	    
+
 		for(Attachment attachment : document.getAttachments()) {
 			Attachment dbAttachment = dbDocument.getAttachment(attachment.getFilename());			
 			oldAttachments.remove(attachment);  // this attachment still exists
@@ -108,11 +104,12 @@ public class DatabaseStore implements Store {
 			
 			if(document == dbDocument) {
 				// new: insert
-				Log.d(TAG, "inserting document");
+				values.put("database_id", database.getDatabaseId());
+				Log.d(TAG, "new document, inserting");
 				dbrw.insert("documents", null, values);
 			} else {
 				// existing: update
-				Log.d(TAG, "updating document");
+				Log.d(TAG, "existing document, updating");
 				String[] whereArgs = { Integer.toString(dbDocument.getDocumentId()) };
 				dbrw.update("documents", values, "_id = ?", whereArgs);
 			}
@@ -135,11 +132,13 @@ public class DatabaseStore implements Store {
 					dbrw.update("attachments", attachmentValues, "_id = ?", whereArgs);
 				} else {
 					// new: insert
+					attachmentValues.put("document_id", document.getDocumentId());
 					dbrw.insert("attachments", null, attachmentValues);
 				}
 			}
 			
 			// update sequence Id
+			database.setSequenceId(sequenceId);
 			writeDatabaseSequenceId(dbrw, database);
 			dbrw.setTransactionSuccessful();
 		} finally {
@@ -153,7 +152,7 @@ public class DatabaseStore implements Store {
 		
 		Attachment dbAttachment = getAttachment(database, document, attachment.getFilename());
 		if(dbAttachment == null) {
-			// attachment record should be in the database
+			// attachment record should be in the database at this point
 			Log.d(TAG, "internal error: no attachment record found for " + attachment.getFilename());
 			return;
 		}
@@ -162,8 +161,17 @@ public class DatabaseStore implements Store {
 		dbAttachment.setContent(attachment.getContent());
 		dbAttachment.setLength(attachment.getLength());
 		dbAttachment.setRevision(attachment.getRevision());
+		dbAttachment.setContentType(attachment.getContentType());
 
 		// write changes to database
+		SQLiteDatabase dbrw = this.dbHelper.getWritableDatabase();
+		try {
+			String[] whereArgs = { Integer.toString(dbAttachment.getAttachmentId()) };
+			ContentValues attachmentValues = contentValuesAttachment(dbAttachment);
+			dbrw.update("attachments", attachmentValues, "_id = ?", whereArgs);
+		} finally {
+			dbrw.close();
+		}
 	}
 	
 	public Map<String, Object> getStatistics(Database database) {
@@ -171,12 +179,18 @@ public class DatabaseStore implements Store {
 		return null;
 	}
 
-	public Document getDocument(Database database, String documentId) {
-		// TODO
-		return null;
+	public Document getDocument(Database database, String docId) {
+		String[] selectionArgs = { docId };
+		List<Document> documents = getDocuments(database, "doc_id = ?", selectionArgs, 1);
+
+		return (documents.size() == 1) ? documents.get(0) : null;
 	}
 
 	public List<Document> getDocuments(Database database) {
+		return getDocuments(database, null, null, -1);
+	}
+
+	private List<Document> getDocuments(Database database, String selection, String[] selectionArgs, int limit) {
 
 		SQLiteDatabase db = this.dbHelper.getReadableDatabase();
 		List<Document> documents = new ArrayList<Document>();
@@ -185,21 +199,25 @@ public class DatabaseStore implements Store {
 			//query(String table, String[] columns, String selection, String[] selectionArgs, String groupBy, String having, String orderBy)
 			//Query the given table, returning a Cursor over the result set.
 			
-			cursor = db.query("documents", DB_DOCUMENT_COLUMNS, null, null, null, null, null);
-			// "doc_id", "database_id", "revision", "content", "parent_id", "type", "tags"
+			cursor = db.query("documents", DB_DOCUMENT_COLUMNS, selection, selectionArgs, null, null, null);
+			// "_id", "doc_id", "database_id", "revision", "content", "parent_id", "type", "tags"
 
 			while(cursor.moveToNext()) {
-				String docId = cursor.getString(0);
+				String docId = cursor.getString(1);
 				Document document = new Document(docId);
 				
-				document.setDatabaseId(cursor.getInt(1));
-				document.setRevision(cursor.getString(2));
-				document.setContent(cursor.getBlob(3));
-				document.setParentId(cursor.getString(4));
-				document.setType(cursor.getString(5));
-				document.setTags(cursor.getString(6));
+				document.setDocumentId(cursor.getInt(0));
+				document.setDatabaseId(cursor.getInt(2));
+				document.setRevision(cursor.getString(3));
+				document.setContent(cursor.getBlob(4));
+				document.setParentId(cursor.getString(5));
+				document.setType(cursor.getString(6));
+				document.setTags(cursor.getString(7));
 
 				documents.add(document);
+				
+				if(limit > 0 && documents.size() == limit)
+					break;
 			}
 		} finally {
 			if(cursor != null) cursor.close();
@@ -252,16 +270,18 @@ public class DatabaseStore implements Store {
 		try {
 			String[] selectionArgs = { filename };
 			cursor = db.query("attachments", DB_ATTACHMENT_COLUMNS, "filename = ?", selectionArgs, null, null, null);
-			// "document_id", "doc_id", "filename", "length", "content_type", "stale", "content"
+			// "_id", "document_id", "doc_id", "revision", "filename", "length", "content_type", "stale", "content"
 
 			if(cursor.moveToNext()) {
-				attachment = new Attachment(cursor.getString(2));
-				attachment.setDocumentId(cursor.getInt(0));
-				attachment.setDocId(cursor.getString(1));
-				attachment.setLength(cursor.getInt(3));
-				attachment.setContentType(cursor.getString(4));
-				attachment.setStale(cursor.getInt(5) == 0 ? false : true);
-				attachment.setContent(cursor.getBlob(6));
+				attachment = new Attachment(cursor.getString(4));
+				attachment.setAttachmentId(cursor.getInt(0));
+				attachment.setDocumentId(cursor.getInt(1));
+				attachment.setDocId(cursor.getString(2));
+				attachment.setRevision(cursor.getInt(3));
+				attachment.setLength(cursor.getInt(5));
+				attachment.setContentType(cursor.getString(6));
+				attachment.setStale(cursor.getInt(7) == 0 ? false : true);
+				attachment.setContent(cursor.getBlob(8));
 			}
 		}
 		finally {
@@ -363,11 +383,12 @@ public class DatabaseStore implements Store {
 		return values;
 	}
 	
-	// { "document_id", "doc_id", "filename", "length", "content_type", "stale", "content" };
+	// { "document_id", "doc_id", "revision", "filename", "length", "content_type", "stale", "content" };
 	private ContentValues contentValuesAttachment(Attachment attachment) {
 		ContentValues values = new ContentValues();
 		values.put("document_id", attachment.getDocumentId());
 		values.put("doc_id", attachment.getDocId());
+		values.put("revision", attachment.getRevision());
 		values.put("filename", attachment.getFilename());
 		values.put("length", attachment.getLength());
 		values.put("content_type", attachment.getContentType());
