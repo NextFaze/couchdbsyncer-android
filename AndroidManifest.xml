@@ -19,6 +19,7 @@
         <activity android:name=".DocumentTypeListActivity"></activity>
         <activity android:name=".NewDatabaseActivity"></activity>
         <activity android:name=".DatabaseActivity"></activity>
+        <service android:name=".SyncerService"></service>
 
     </application>
 </manifest>

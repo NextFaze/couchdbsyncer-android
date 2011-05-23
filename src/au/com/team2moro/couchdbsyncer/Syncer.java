@@ -9,9 +9,9 @@ import java.util.Map;
 import android.util.Log;
 
 public class Syncer {
-	public static final String TAG = "Syncer";
+	private static final String TAG = "Syncer";
 	
-    private int countReq;
+    private int countReq, countReqDoc, countReqAtt, countFin, countFinAtt, countFinDoc, countHttp;
     private Store store;
     private Database database;
     private String username, password;
@@ -112,6 +112,8 @@ public class Syncer {
     	// (we also add deleted documents to bulk fetcher to retain ordering. it returns documents ordered by sequence id)
     	BulkFetcher bfetcher = getBulkFetcher();
     	bfetcher.addDocument(document, sequenceId);
+    	countReq++;
+    	countReqDoc++;
     	if(documentsPerRequest > 0 && bfetcher.getFetchCount() == documentsPerRequest) {
     		performBulkFetch(policy);
     		bulkFetcher = null;  // reset bulk fetcher
@@ -147,26 +149,30 @@ public class Syncer {
     	URL attachmentURL = new URL(database.getUrl() + "/" + document.getDocId() + "/" + attachment.getFilename());
     	Fetcher fetcher = getFetcher();
     	byte[] content = fetcher.fetchBytes(attachmentURL);
+		countHttp++;
+		countReq++;
+		countReqAtt++;
 		attachment.setContent(content);
 		attachment.setLength(content.length);
 		store.updateAttachment(database, document, attachment);
-		countReq++;
+		countFin++;
+		countFinAtt++;
 		
-		return; 
+		return;
 	}
 	
 	public Map<String, Object> getDatabaseInformation() {
 		return null;  // TODO
 	}
-	
+
 	public float getProgress() {
-		return 0;  // TODO
+		return countReq == 0 ? 0 : (float)countFin / countReq;
 	}
 	public float getProgressDocuments() {
-		return 0;  // TODO
+		return countReqDoc == 0 ? 0 : (float)countFinDoc / countReqDoc;
 	}
 	public float getProgressAttachments() {
-		return 0; // TODO
+		return countReqAtt == 0 ? 0 : (float)countFinAtt / countReqAtt;
 	}
 	
 	private void performBulkFetch(StoreDownloadPolicy policy) throws IOException {
@@ -176,12 +182,14 @@ public class Syncer {
 
         // perform bulk document fetch
         List<SequencedDocument> documents = bfetcher.fetchDocuments(database.getUrl());
-        countReq++;
+        countHttp++;
         
         for(SequencedDocument sdoc : documents) {
         	Document document = sdoc.getDocument();
         	// update document in the data store
         	store.updateDocument(database, document, sdoc.getSequenceId());
+        	countFin++;
+        	countFinDoc++;
         	
         	if(document.isDeleted()) continue;
         	
@@ -208,4 +216,5 @@ public class Syncer {
 		}
 		return bulkFetcher;
 	}
+
 }

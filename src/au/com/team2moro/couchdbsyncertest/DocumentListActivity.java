@@ -39,8 +39,8 @@ public class DocumentListActivity extends BaseListActivity {
 	}
 
 	@Override
-	protected void onStart() {
-		super.onStart();
+	protected void onResume() {
+		super.onResume();
 		
     	documents = dbstore.getDocuments(database, type);
     	ArrayAdapter<Document> aa = new ArrayAdapter<Document>(this, android.R.layout.simple_list_item_1, documents);

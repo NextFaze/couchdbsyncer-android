@@ -23,8 +23,8 @@ import android.util.Log;
 
 public class Fetcher {
 	
-	public static final String TAG = "Fetcher";
-	public static final int BUFFER_SIZE = 8196;
+	private static final String TAG = "Fetcher";
+	private static final int BUFFER_SIZE = 8196;
 	private String username, password;
 	
 	public Fetcher() {

@@ -1,8 +1,5 @@
 package au.com.team2moro.couchdbsyncertest;
 
-import java.io.PrintWriter;
-import java.io.StringWriter;
-import java.net.URL;
 import java.util.List;
 
 import android.content.Intent;
@@ -16,7 +13,6 @@ import android.widget.ArrayAdapter;
 import android.widget.ListView;
 import au.com.team2moro.couchdbsyncer.Database;
 import au.com.team2moro.couchdbsyncer.DatabaseStore;
-import au.com.team2moro.couchdbsyncer.Syncer;
 
 public class DatabaseListActivity extends BaseListActivity {
 	public static final String TAG = "DatabaseListActivity";
@@ -63,28 +59,11 @@ public class DatabaseListActivity extends BaseListActivity {
         //setContentView(R.layout.database_list_activity);
         //lv = (ListView) findViewById(R.id.list);
         setTitle("Databases");
-        
-        // sync database
-        // adds database record if it doesn't exist
-        try {
-        	URL url = new URL("http://192.168.1.134:5984/syncertest");
-        	String dbname = "syncertest";
-        	DatabaseStore dbstore = ((TestApplication) getApplication()).getDatabaseStore();
-        	Database database = dbstore.getDatabase(dbname);
-        	if(database == null) {
-        		database = dbstore.addDatabase(dbname, url);    		
-        	}
-        	database.setUrl(url);
-        	Syncer syncer = new Syncer(dbstore, database);
-        	syncer.update();
-        } catch(Exception e) {
-        	Log.d(TAG, "exception: " + getStackTraceAsString(e));
-        }
     }
     
     @Override
-	protected void onStart() {
-		super.onStart();
+	protected void onResume() {
+		super.onResume();
 		
 		updateListView();
 	}
@@ -101,15 +80,4 @@ public class DatabaseListActivity extends BaseListActivity {
         }
     }
 
-	private String getStackTraceAsString(Exception exception) 
-	{ 
-		StringWriter sw = new StringWriter(); 
-		PrintWriter pw = new PrintWriter(sw); 
-		pw.print(" [ "); 
-		pw.print(exception.getClass().getName()); 
-		pw.print(" ] "); 
-		pw.println(exception.getMessage()); 
-		exception.printStackTrace(pw); 
-		return sw.toString(); 
-	}
 }

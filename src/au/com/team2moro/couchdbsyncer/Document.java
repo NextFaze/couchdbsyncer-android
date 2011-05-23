@@ -11,7 +11,7 @@ import java.util.Map;
 import android.util.Log;
 
 public class Document {
-	public static final String TAG = "Document";
+	private static final String TAG = "Document";
 
 	private long documentId, databaseId;
 	private String revision, parentId, type, tags, docId;

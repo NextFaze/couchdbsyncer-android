@@ -37,8 +37,8 @@ public class DocumentTypeListActivity extends BaseListActivity {
 	}
 
     @Override
-	protected void onStart() {
-		super.onStart();
+	protected void onResume() {
+		super.onResume();
 		
 		updateListView();
 	}

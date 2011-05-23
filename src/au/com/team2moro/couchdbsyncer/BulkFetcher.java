@@ -13,7 +13,7 @@ import android.util.Log;
 import com.google.gson.Gson;
 
 public class BulkFetcher extends Fetcher {
-	public static final String TAG = "BulkFetcher";
+	private static final String TAG = "BulkFetcher";
 	private List<Document> documents;  // documents to fetch
 	private List<Document> deleted;    // deleted documents (returned in results)
 	private Map<String, Integer> sequenceMap;  // map of docId -> sequence id

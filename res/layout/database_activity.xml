@@ -3,7 +3,8 @@
   xmlns:android="http://schemas.android.com/apk/res/android"
   android:layout_width="fill_parent"
   android:orientation="vertical" android:layout_height="wrap_content" android:padding="20sp">
-    <TableLayout android:layout_width="fill_parent" android:layout_height="wrap_content" android:id="@+id/tableLayout1" android:stretchColumns="1" android:layout_marginBottom="10sp">
+    <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:id="@+id/textViewURL"></TextView>
+    <TableLayout android:layout_width="fill_parent" android:layout_height="wrap_content" android:id="@+id/tableLayout1" android:stretchColumns="1" android:layout_marginBottom="10sp" android:layout_marginTop="10sp">
         <TableRow android:layout_width="wrap_content" android:id="@+id/tableRow3" android:layout_height="wrap_content" android:layout_marginBottom="10dip">
             <TextView android:id="@+id/textView4" android:layout_height="wrap_content" android:layout_width="wrap_content" android:text="Sync Status" android:layout_span="2" android:textStyle="bold"></TextView>
         </TableRow>
@@ -35,7 +36,14 @@
             <TextView android:layout_width="wrap_content" android:text="0" android:layout_height="wrap_content" android:id="@+id/textViewStats3"></TextView>
         </TableRow>
     </TableLayout>
-    <Button android:layout_width="fill_parent" android:text="View Documents" android:layout_height="wrap_content" android:id="@+id/button1"></Button>
-    <Button android:layout_width="fill_parent" android:layout_height="wrap_content" android:text="Delete Data" android:id="@+id/button2"></Button>
-    <Button android:layout_height="wrap_content" android:layout_width="fill_parent" android:text="Start Sync" android:id="@+id/button3"></Button>
+    <LinearLayout android:id="@+id/linearLayout1" android:layout_height="fill_parent" android:layout_width="fill_parent" android:orientation="horizontal">
+    <Button android:text="View Documents" android:layout_height="wrap_content" android:id="@+id/button1" android:layout_weight="1" android:layout_width="fill_parent"></Button>
+    <Button android:layout_height="wrap_content" android:text="Start Sync" android:id="@+id/button2" android:layout_weight="1" android:layout_width="fill_parent"></Button>
+    </LinearLayout>
+    
+    <LinearLayout android:id="@+id/linearLayout2" android:layout_height="fill_parent" android:layout_width="fill_parent">
+    <Button android:layout_height="wrap_content" android:text="Delete Data" android:id="@+id/button3" android:layout_width="fill_parent" android:layout_weight="1"></Button>
+    <Button android:layout_height="wrap_content" android:text="Delete Database" android:id="@+id/button4" android:layout_width="fill_parent" android:layout_weight="1"></Button>
+    </LinearLayout>
+    
 </LinearLayout>

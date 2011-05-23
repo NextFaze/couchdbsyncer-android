@@ -6,10 +6,8 @@ import java.io.InputStreamReader;
 import java.net.MalformedURLException;
 import java.net.URL;
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
-import java.util.Map;
 import java.util.Set;
 
 import android.content.ContentValues;
@@ -21,7 +19,7 @@ import android.database.sqlite.SQLiteStatement;
 import android.util.Log;
 
 public class DatabaseStore implements Store {
-	public static final String TAG = "DatabaseStore";
+	private static final String TAG = "DatabaseStore";
 	private DbHelper dbHelper;
 	
 	private static final String[] DB_DATABASE_COLUMNS = { "_id", "name", "sequence_id", "doc_del_count", "db_name", "url" };
@@ -48,11 +46,15 @@ public class DatabaseStore implements Store {
 		}
 	}
 	
+	public synchronized void purge(Database database) {
+		purge(database, false);
+	}
+	
 	/**
 	 * Delete all documents and attachments from the given database
 	 * @param database The database to purge
 	 */
-	public void purge(Database database) {
+	public synchronized void purge(Database database, boolean deleteDatabase) {
 		String[] whereArgs = { Long.toString(database.getDatabaseId()) };
 		SQLiteDatabase dbrw = this.dbHelper.getWritableDatabase();
 		Log.d(TAG, "deleting database: " + database.getName());
@@ -61,8 +63,12 @@ public class DatabaseStore implements Store {
 			dbrw.beginTransaction();
 			dbrw.delete("attachments", "document_id IN (SELECT _id FROM documents WHERE database_id = ?)", whereArgs);
 			dbrw.delete("documents", "database_id = ?", whereArgs);
-			database.setSequenceId(0);
-			writeDatabaseSequenceId(dbrw, database);
+			if(deleteDatabase) {
+				dbrw.delete("databases", "database_id = ?", whereArgs);
+			} else {
+				database.setSequenceId(0);
+				writeDatabaseSequenceId(dbrw, database);
+			}
 			dbrw.setTransactionSuccessful();
 		} finally {
 			dbrw.endTransaction();
@@ -74,7 +80,7 @@ public class DatabaseStore implements Store {
 		return database.getSequenceId();
 	}
 	
-	public void updateDocument(Database database, Document document, int sequenceId) {
+	public synchronized void updateDocument(Database database, Document document, int sequenceId) {
 		Log.d(TAG, String.format("updating document %s (seq:%d)", document.getDocId(), sequenceId));
 		
 		if(document.isDeleted()) {
@@ -183,7 +189,7 @@ public class DatabaseStore implements Store {
 		}
 	}
 	
-	public void updateAttachment(Database database, Document document, Attachment attachment) {
+	public synchronized void updateAttachment(Database database, Document document, Attachment attachment) {
 		Log.d(TAG, "updating attachment: " + attachment.getFilename());
 		
 		Attachment dbAttachment = getAttachment(database, document, attachment.getFilename());
@@ -305,7 +311,7 @@ public class DatabaseStore implements Store {
 	 * Delete a document and associated attachments from the local database.  updates sequence id
 	 * @param document The document to delete
 	 */
-	private void deleteDocument(Database database, Document document) {
+	private synchronized void deleteDocument(Database database, Document document) {
 		String[] whereArgs = { Long.toString(document.getDocumentId()) };
 		SQLiteDatabase dbrw = this.dbHelper.getWritableDatabase();
 		Log.d(TAG, "deleting document: " + document.getDocumentId());
@@ -321,7 +327,7 @@ public class DatabaseStore implements Store {
 			dbrw.close();
 		}
 	}
-	
+
 	private List<Attachment> getAttachments(String selection, String[] selectionArgs, int limit, boolean fetchContent) {
 		List<Attachment> attachments = new ArrayList<Attachment>();
 		SQLiteDatabase db = this.dbHelper.getReadableDatabase();
@@ -435,7 +441,7 @@ public class DatabaseStore implements Store {
 	}
 	
 
-	public Database addDatabase(String name, URL url) {
+	public synchronized Database addDatabase(String name, URL url) {
 		Database database = new Database(name, url);
 		
 		ContentValues values = contentValuesDatabase(database);
