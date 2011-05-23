@@ -51,13 +51,14 @@ public class Fetcher {
 		}
 		
 		if(body != null) {
+			Log.d(TAG, "body: " + body);
 			urlConnection.setDoOutput(true);
 			OutputStreamWriter out = new OutputStreamWriter(urlConnection.getOutputStream());
 			out.write(body);
 			out.close();
 		}
 		
-		String contentType = urlConnection.getContentType();
+		//String contentType = urlConnection.getContentType();
 	    InputStream raw = urlConnection.getInputStream();
 	    InputStream in = new BufferedInputStream(raw, BUFFER_SIZE);
 	    ByteArrayOutputStream byteStream = new ByteArrayOutputStream();
@@ -103,12 +104,14 @@ public class Fetcher {
 		return fetchJSON(url, null);
 	}
 		
+	@SuppressWarnings("unchecked")
 	private Map<String, Object> parseJSON(String json) throws JSONException {
 		//Log.d(TAG, "parsing json: " + json);
 		JSONObject object = (JSONObject) new JSONTokener(json).nextValue();
 		return (Map<String, Object>) parseJSONObject(object);
 	}
 	
+	@SuppressWarnings("unchecked")
 	private Object parseJSONObject(Object object) throws JSONException {
 		Object result = null;
 		

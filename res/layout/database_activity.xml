@@ -1,0 +1,41 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout
+  xmlns:android="http://schemas.android.com/apk/res/android"
+  android:layout_width="fill_parent"
+  android:orientation="vertical" android:layout_height="wrap_content" android:padding="20sp">
+    <TableLayout android:layout_width="fill_parent" android:layout_height="wrap_content" android:id="@+id/tableLayout1" android:stretchColumns="1" android:layout_marginBottom="10sp">
+        <TableRow android:layout_width="wrap_content" android:id="@+id/tableRow3" android:layout_height="wrap_content" android:layout_marginBottom="10dip">
+            <TextView android:id="@+id/textView4" android:layout_height="wrap_content" android:layout_width="wrap_content" android:text="Sync Status" android:layout_span="2" android:textStyle="bold"></TextView>
+        </TableRow>
+        <TableRow android:id="@+id/tableRow2" android:layout_height="wrap_content" android:layout_width="wrap_content" android:layout_marginBottom="10dip">
+            <TextView android:id="@+id/textView1" android:layout_width="100sp" android:text="Documents" android:layout_height="wrap_content" android:layout_gravity="center_vertical"></TextView>
+            <ProgressBar android:layout_height="wrap_content" android:layout_width="fill_parent" android:id="@+id/progressBar1" style="?android:attr/progressBarStyleHorizontal"></ProgressBar>
+        </TableRow>
+        <TableRow android:layout_width="wrap_content" android:id="@+id/TableRow01" android:layout_height="wrap_content" android:layout_marginBottom="10dip">
+            <TextView android:id="@+id/textView2" android:layout_height="wrap_content" android:text="Attachments" android:layout_width="100sp" android:layout_gravity="center_vertical"></TextView>
+            <ProgressBar android:layout_width="fill_parent" android:layout_height="wrap_content" android:id="@+id/progressBar2" style="?android:attr/progressBarStyleHorizontal"></ProgressBar>
+        </TableRow>
+        <TableRow android:id="@+id/tableRow1" android:layout_height="wrap_content" android:layout_width="wrap_content" android:layout_marginBottom="10dip">
+            <TextView android:id="@+id/textView3" android:layout_width="100sp" android:text="Overall" android:layout_height="wrap_content" android:layout_gravity="center_vertical"></TextView>
+            <ProgressBar android:layout_height="wrap_content" android:layout_width="fill_parent" android:id="@+id/progressBar3" style="?android:attr/progressBarStyleHorizontal"></ProgressBar>
+        </TableRow>
+        <TableRow android:layout_width="wrap_content" android:id="@+id/TableRow02" android:layout_height="wrap_content" android:layout_marginBottom="10dip">
+            <TextView android:id="@+id/TextView01" android:layout_width="wrap_content" android:layout_height="wrap_content" android:textStyle="bold" android:text="Database Status"></TextView>
+        </TableRow>
+        <TableRow android:id="@+id/TableRow03" android:layout_height="wrap_content" android:layout_width="wrap_content" android:layout_marginBottom="10dip">
+            <TextView android:id="@+id/TextView02" android:layout_width="100sp" android:layout_height="wrap_content" android:layout_gravity="center_vertical" android:text="# Documents"></TextView>
+            <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="0" android:id="@+id/textViewStats1"></TextView>
+        </TableRow>
+        <TableRow android:id="@+id/TableRow04" android:layout_height="wrap_content" android:layout_width="wrap_content" android:layout_marginBottom="10dip">
+            <TextView android:id="@+id/TextView04" android:layout_width="100sp" android:layout_height="wrap_content" android:layout_gravity="center_vertical" android:text="# Attachments"></TextView>
+            <TextView android:layout_width="wrap_content" android:text="0" android:layout_height="wrap_content" android:id="@+id/textViewStats2"></TextView>
+        </TableRow>
+        <TableRow android:id="@+id/TableRow05" android:layout_height="wrap_content" android:layout_width="wrap_content" android:layout_marginBottom="10dip">
+            <TextView android:id="@+id/TextView05" android:layout_width="100sp" android:layout_height="wrap_content" android:layout_gravity="center_vertical" android:text="Sequence ID"></TextView>
+            <TextView android:layout_width="wrap_content" android:text="0" android:layout_height="wrap_content" android:id="@+id/textViewStats3"></TextView>
+        </TableRow>
+    </TableLayout>
+    <Button android:layout_width="fill_parent" android:text="View Documents" android:layout_height="wrap_content" android:id="@+id/button1"></Button>
+    <Button android:layout_width="fill_parent" android:layout_height="wrap_content" android:text="Delete Data" android:id="@+id/button2"></Button>
+    <Button android:layout_height="wrap_content" android:layout_width="fill_parent" android:text="Start Sync" android:id="@+id/button3"></Button>
+</LinearLayout>

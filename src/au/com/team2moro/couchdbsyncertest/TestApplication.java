@@ -1,13 +1,14 @@
 package au.com.team2moro.couchdbsyncertest;
 
 import android.app.Application;
+import android.content.SharedPreferences;
+import au.com.team2moro.couchdbsyncer.Credentials;
 import au.com.team2moro.couchdbsyncer.Database;
 import au.com.team2moro.couchdbsyncer.DatabaseStore;
 
 public class TestApplication extends Application {
 
 	DatabaseStore dbstore;
-	Database database;
 	
 	@Override
 	public void onCreate() {
@@ -19,12 +20,21 @@ public class TestApplication extends Application {
 	DatabaseStore getDatabaseStore() {
 		return dbstore;
 	}
-	
-	Database getDatabase() {
-		return database;
-	}
-	void setDatabase(Database database) {
-		this.database = database;
-	}
 
+	private String getCredentialsPreferenceKey(Database database) {
+		return "database_credentials_" + database.getName();
+	}
+	
+	public Credentials getDatabaseCredentials(Database database) {
+		SharedPreferences pref = getSharedPreferences(getCredentialsPreferenceKey(database), MODE_PRIVATE);
+		return new Credentials(pref.getString("username", null), pref.getString("password", null));
+	}
+	
+	public void setDatabaseCredentials(Database database, Credentials credentials) {
+		SharedPreferences pref = getSharedPreferences(getCredentialsPreferenceKey(database), MODE_PRIVATE);
+		SharedPreferences.Editor editor = pref.edit();
+		editor.putString("username", credentials.getUsername());
+		editor.putString("password", credentials.getPassword());
+		editor.commit();
+	}
 }

@@ -2,20 +2,20 @@ package au.com.team2moro.couchdbsyncertest;
 
 import java.util.List;
 
-import android.app.ListActivity;
 import android.content.Intent;
 import android.os.Bundle;
 import android.view.View;
 import android.widget.ArrayAdapter;
 import android.widget.ListView;
 import au.com.team2moro.couchdbsyncer.Database;
-import au.com.team2moro.couchdbsyncer.DatabaseStore;
 import au.com.team2moro.couchdbsyncer.Document;
 
-public class DocumentListActivity extends ListActivity {
+public class DocumentListActivity extends BaseListActivity {
 
 	TestApplication application;
+	Database database;
 	List<Document> documents;
+	String type;
 	
 	@Override
 	protected void onListItemClick(ListView l, View v, int position, long id) {
@@ -23,6 +23,7 @@ public class DocumentListActivity extends ListActivity {
 		
 		Document document = documents.get(position);
         Intent intent = new Intent(this, DocumentActivity.class);
+        intent.putExtra("database_name", database.getName());
         intent.putExtra("docId", document.getDocId());
         startActivity(intent);
 	}
@@ -30,20 +31,18 @@ public class DocumentListActivity extends ListActivity {
 	@Override
 	protected void onCreate(Bundle savedInstanceState) {
 		super.onCreate(savedInstanceState);
-		
-		application = (TestApplication) getApplication();
-    	
-    	//String docId = getIntent().getStringExtra("docId");
-        //Document document = dbstore.getDocument(docId);
+		    	
+    	String db_name = getIntent().getStringExtra("database_name");
+    	type = getIntent().getStringExtra("type");
+    	database = dbstore.getDatabase(db_name);
+        setTitle("Database: " + database.getName() + " type:" + type);
 	}
 
 	@Override
 	protected void onStart() {
 		super.onStart();
 		
-    	DatabaseStore dbstore = application.getDatabaseStore();
-    	Database database = application.getDatabase();
-    	documents = dbstore.getDocuments(database);
+    	documents = dbstore.getDocuments(database, type);
     	ArrayAdapter<Document> aa = new ArrayAdapter<Document>(this, android.R.layout.simple_list_item_1, documents);
     	setListAdapter(aa);
 	}

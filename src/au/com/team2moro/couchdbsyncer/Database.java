@@ -5,7 +5,8 @@ import java.net.URL;
 public class Database {
 	private URL url;
 	private String name, dbName;
-	private int sequenceId, docDelCount, docUpdateSeq, databaseId;
+	private long sequenceId, docDelCount, docUpdateSeq;
+	private long databaseId;
 	
 	public Database(String name, URL url) {
 		this.name = name;
@@ -16,11 +17,15 @@ public class Database {
 		this.databaseId = -1;
 	}
 
-	public int getDatabaseId() {
+	public String toString() {
+		return name;
+	}
+	
+	public long getDatabaseId() {
 		return databaseId;
 	}
 
-	public void setDatabaseId(int databaseId) {
+	public void setDatabaseId(long databaseId) {
 		this.databaseId = databaseId;
 	}
 
@@ -44,27 +49,27 @@ public class Database {
 		this.dbName = dbName;
 	}
 
-	public int getSequenceId() {
+	public long getSequenceId() {
 		return sequenceId;
 	}
 
-	public void setSequenceId(int sequenceId) {
+	public void setSequenceId(long sequenceId) {
 		this.sequenceId = sequenceId;
 	}
 
-	public int getDocDelCount() {
+	public long getDocDelCount() {
 		return docDelCount;
 	}
 
-	public void setDocDelCount(int docDelCount) {
+	public void setDocDelCount(long docDelCount) {
 		this.docDelCount = docDelCount;
 	}
 
-	public int getDocUpdateSeq() {
+	public long getDocUpdateSeq() {
 		return docUpdateSeq;
 	}
 
-	public void setDocUpdateSeq(int docUpdateSeq) {
+	public void setDocUpdateSeq(long docUpdateSeq) {
 		this.docUpdateSeq = docUpdateSeq;
 	}
 

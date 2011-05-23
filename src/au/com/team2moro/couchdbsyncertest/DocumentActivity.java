@@ -1,13 +1,8 @@
 package au.com.team2moro.couchdbsyncertest;
 
-import java.util.List;
-
 import android.app.Activity;
-import android.content.Intent;
 import android.os.Bundle;
-import android.view.View;
-import android.widget.ArrayAdapter;
-import android.widget.ListView;
+import android.widget.TextView;
 import au.com.team2moro.couchdbsyncer.Database;
 import au.com.team2moro.couchdbsyncer.DatabaseStore;
 import au.com.team2moro.couchdbsyncer.Document;
@@ -22,10 +17,15 @@ public class DocumentActivity extends Activity {
 		
 		application = (TestApplication) getApplication();
     	
-    	DatabaseStore dbstore = application.getDatabaseStore();
-    	Database database = application.getDatabase();
+		String db_name = getIntent().getStringExtra("database_name");
+		DatabaseStore dbstore = application.getDatabaseStore();
+    	Database database = dbstore.getDatabase(db_name);
     	String docId = getIntent().getStringExtra("docId");
         Document document = dbstore.getDocument(database, docId);
-        
+        setTitle("Document " + document.getDocId());
+
+        TextView tv = new TextView(this);
+        tv.setText(document.getContent().toString());
+        setContentView(tv);
 	}
 }

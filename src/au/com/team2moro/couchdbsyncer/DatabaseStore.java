@@ -6,6 +6,7 @@ import java.io.InputStreamReader;
 import java.net.MalformedURLException;
 import java.net.URL;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
@@ -16,16 +17,17 @@ import android.content.Context;
 import android.database.Cursor;
 import android.database.sqlite.SQLiteDatabase;
 import android.database.sqlite.SQLiteOpenHelper;
+import android.database.sqlite.SQLiteStatement;
 import android.util.Log;
 
 public class DatabaseStore implements Store {
 	public static final String TAG = "DatabaseStore";
-	private String name;
 	private DbHelper dbHelper;
 	
 	private static final String[] DB_DATABASE_COLUMNS = { "_id", "name", "sequence_id", "doc_del_count", "db_name", "url" };
 	private static final String[] DB_DOCUMENT_COLUMNS = { "_id", "doc_id", "database_id", "revision", "content", "parent_id", "type", "tags" };
-	private static final String[] DB_ATTACHMENT_COLUMNS = { "_id", "document_id", "doc_id", "revision", "filename", "length", "content_type", "stale", "content" };
+	private static final String[] DB_ATTACHMENT_CONTENT_COLUMNS = { "_id", "document_id", "doc_id", "revision", "filename", "length", "content_type", "stale", "content" };
+	private static final String[] DB_ATTACHMENT_COLUMNS = { "_id", "document_id", "doc_id", "revision", "filename", "length", "content_type", "stale" };
 	private static final String[] DB_TYPE_COLUMN = { "type" };
 
 	public DatabaseStore(Context context) {
@@ -37,14 +39,38 @@ public class DatabaseStore implements Store {
 		dbHelper.close();
 	}
 	
+	/**
+	 * Delete all documents and attachments from all databases
+	 */
 	public void purge() {
-		// TODO
+		for(Database database : getDatabases()) {
+			purge(database);
+		}
 	}
+	
+	/**
+	 * Delete all documents and attachments from the given database
+	 * @param database The database to purge
+	 */
 	public void purge(Database database) {
-		// TODO
+		String[] whereArgs = { Long.toString(database.getDatabaseId()) };
+		SQLiteDatabase dbrw = this.dbHelper.getWritableDatabase();
+		Log.d(TAG, "deleting database: " + database.getName());
+		
+		try {
+			dbrw.beginTransaction();
+			dbrw.delete("attachments", "document_id IN (SELECT _id FROM documents WHERE database_id = ?)", whereArgs);
+			dbrw.delete("documents", "database_id = ?", whereArgs);
+			database.setSequenceId(0);
+			writeDatabaseSequenceId(dbrw, database);
+			dbrw.setTransactionSuccessful();
+		} finally {
+			dbrw.endTransaction();
+			dbrw.close();
+		}
 	}
 
-	public int getSequenceId(Database database) {
+	public long getSequenceId(Database database) {
 		return database.getSequenceId();
 	}
 	
@@ -61,10 +87,12 @@ public class DatabaseStore implements Store {
 		Document dbDocument = getDocument(database, document.getDocId());
 		Set<Attachment> oldAttachments = new HashSet<Attachment>();
 		Set<Attachment> updatedAttachments = new HashSet<Attachment>();
+		boolean newDocument = false;
 		
 		if(dbDocument == null) {
 			// new document
 			dbDocument = document;
+			newDocument = true;
 		} else {
 			// existing document
 			dbDocument.setRevision(document.getRevision());
@@ -80,19 +108,24 @@ public class DatabaseStore implements Store {
 			Attachment dbAttachment = dbDocument.getAttachment(attachment.getFilename());			
 			oldAttachments.remove(attachment);  // this attachment still exists
 			
-			if(dbAttachment == null) {
+			if(newDocument || dbAttachment == null) {
+				// create new attachment object
 				dbAttachment = new Attachment(attachment.getFilename());
+				dbAttachment.setDocId(document.getDocId());
+				// documentId set later (after document commit)
 			}
 			
+			Log.d(TAG, "attachment: new revision = " + attachment.getRevision() + ", old revision = " + dbAttachment.getRevision());
 			if(attachment.getRevision() != dbAttachment.getRevision()) {
 				// attachment not yet downloaded or revision has changed
 				// update attachment attributes
+				attachment.setStale(true);    // provides feedback to Syncer that this needs to be downloaded
 				dbAttachment.setStale(true);
 				dbAttachment.setContentType(attachment.getContentType());
-				dbAttachment.setDocumentId(attachment.getDocumentId());
 				dbAttachment.setRevision(attachment.getRevision());
 				
 				updatedAttachments.add(dbAttachment);  // need to download this attachment
+				Log.d(TAG, "attachment changed: " + dbAttachment);				
 			}
 		}
 		
@@ -106,29 +139,32 @@ public class DatabaseStore implements Store {
 				// new: insert
 				values.put("database_id", database.getDatabaseId());
 				Log.d(TAG, "new document, inserting");
-				dbrw.insert("documents", null, values);
+				long documentId = dbrw.insert("documents", null, values);
+				document.setDocumentId(documentId);
 			} else {
 				// existing: update
 				Log.d(TAG, "existing document, updating");
-				String[] whereArgs = { Integer.toString(dbDocument.getDocumentId()) };
+				String[] whereArgs = { Long.toString(dbDocument.getDocumentId()) };
 				dbrw.update("documents", values, "_id = ?", whereArgs);
 			}
 			
 			// remove local attachments that are no longer attached to the document
 			for(Attachment attachment : oldAttachments) {
 				Log.d(TAG, "removing attachment: " + attachment.getFilename());
-				String[] attachmentWhere = { Integer.toString(attachment.getAttachmentId()) };
+				String[] attachmentWhere = { Long.toString(attachment.getAttachmentId()) };
 				dbrw.delete("attachments", "_id = ?", attachmentWhere);
 			}
 			document.getAttachments().remove(oldAttachments);  // update in-memory document state
 
 			// save metadata for new attachments
 			for(Attachment attachment : updatedAttachments) {
+				// set attachment document id (required if this is a new document, as documentId only known after document insert)
+				attachment.setDocumentId(dbDocument.getDocumentId());
 				ContentValues attachmentValues = contentValuesAttachment(attachment);
 
 				if(attachment.getAttachmentId() >= 0) {
 					// existing: update
-					String[] whereArgs = { Integer.toString(attachment.getAttachmentId()) };
+					String[] whereArgs = { Long.toString(attachment.getAttachmentId()) };
 					dbrw.update("attachments", attachmentValues, "_id = ?", whereArgs);
 				} else {
 					// new: insert
@@ -166,7 +202,7 @@ public class DatabaseStore implements Store {
 		// write changes to database
 		SQLiteDatabase dbrw = this.dbHelper.getWritableDatabase();
 		try {
-			String[] whereArgs = { Integer.toString(dbAttachment.getAttachmentId()) };
+			String[] whereArgs = { Long.toString(dbAttachment.getAttachmentId()) };
 			ContentValues attachmentValues = contentValuesAttachment(dbAttachment);
 			dbrw.update("attachments", attachmentValues, "_id = ?", whereArgs);
 		} finally {
@@ -174,27 +210,40 @@ public class DatabaseStore implements Store {
 		}
 	}
 	
-	public Map<String, Object> getStatistics(Database database) {
-		// TODO
-		return null;
+	public long getDocumentCount(Database database) {
+		SQLiteDatabase db = this.dbHelper.getReadableDatabase();
+		SQLiteStatement stmt = db.compileStatement("SELECT count(*) FROM documents WHERE database_id = " + database.getDatabaseId());
+		long count = stmt.simpleQueryForLong();
+		db.close();
+		return count;
 	}
-
+	
+	public long getAttachmentCount(Database database) {
+		SQLiteDatabase db = this.dbHelper.getReadableDatabase();
+		SQLiteStatement stmt = db.compileStatement("SELECT count(*) FROM attachments WHERE document_id IN (SELECT _id FROM documents WHERE database_id = " + database.getDatabaseId() + ")");
+		long count = stmt.simpleQueryForLong();
+		db.close();
+		return count;
+	}
+	
 	public Document getDocument(Database database, String docId) {
-		String[] selectionArgs = { docId };
-		List<Document> documents = getDocuments(database, "doc_id = ?", selectionArgs, 1);
+		String[] selectionArgs = { Long.toString(database.getDatabaseId()), docId };
+		List<Document> documents = getDocuments("database_id = ? AND doc_id = ?", selectionArgs, 1);
 
 		return (documents.size() == 1) ? documents.get(0) : null;
 	}
 
 	public List<Document> getDocuments(Database database) {
-		return getDocuments(database, null, null, -1);
+		String[] selectionArgs = { Long.toString(database.getDatabaseId()) };
+		return getDocuments("database_id = ?", selectionArgs, -1);
 	}
 
-	private List<Document> getDocuments(Database database, String selection, String[] selectionArgs, int limit) {
+	private List<Document> getDocuments(String selection, String[] selectionArgs, int limit) {
 
 		SQLiteDatabase db = this.dbHelper.getReadableDatabase();
 		List<Document> documents = new ArrayList<Document>();
 		Cursor cursor = null;
+		
 		try {
 			//query(String table, String[] columns, String selection, String[] selectionArgs, String groupBy, String having, String orderBy)
 			//Query the given table, returning a Cursor over the result set.
@@ -228,12 +277,28 @@ public class DatabaseStore implements Store {
 	}
 	
 	public List<Document> getDocuments(Database database, String type) {
-		// TODO
-		return null;
+		String[] selectionArgs = { Long.toString(database.getDatabaseId()), type };
+		return getDocuments("database_id = ? AND type = ?", selectionArgs, -1);
 	}
+	
 	public List<Document> getDocuments(Database database, String type, String tag) {
-		// TODO
-		return null;
+		String[] selectionArgs = { Long.toString(database.getDatabaseId()), type, tag };
+		return getDocuments("database_id = ? AND type = ? AND tag LIKE ?", selectionArgs, -1);
+	}
+
+	/**
+	 * Find and return a list of all distinct document types in the store
+	 */
+	public List<String> getDocumentTypes(Database database) {
+		SQLiteDatabase db = this.dbHelper.getReadableDatabase();
+		String[] selectionArgs = { Long.toString(database.getDatabaseId()) };
+		Cursor cursor = db.query(true, "documents", DB_TYPE_COLUMN, "_id = ?", selectionArgs, null, null, null, null);
+		List<String> types = new ArrayList<String>();
+		
+		while(cursor.moveToNext()) {
+			types.add(cursor.getString(0));
+		}
+		return types;
 	}
 	
 	/**
@@ -241,8 +306,10 @@ public class DatabaseStore implements Store {
 	 * @param document The document to delete
 	 */
 	private void deleteDocument(Database database, Document document) {
-		String[] whereArgs = { Integer.toString(document.getDocumentId()) };
+		String[] whereArgs = { Long.toString(document.getDocumentId()) };
 		SQLiteDatabase dbrw = this.dbHelper.getWritableDatabase();
+		Log.d(TAG, "deleting document: " + document.getDocumentId());
+		
 		try {
 			dbrw.beginTransaction();
 			dbrw.delete("documents", "_id = ?", whereArgs);
@@ -255,6 +322,40 @@ public class DatabaseStore implements Store {
 		}
 	}
 	
+	private List<Attachment> getAttachments(String selection, String[] selectionArgs, int limit, boolean fetchContent) {
+		List<Attachment> attachments = new ArrayList<Attachment>();
+		SQLiteDatabase db = this.dbHelper.getReadableDatabase();
+		Cursor cursor = null;
+
+		try {
+			String[] columns = fetchContent ? DB_ATTACHMENT_CONTENT_COLUMNS : DB_ATTACHMENT_COLUMNS;
+			cursor = db.query("attachments", columns, selection, selectionArgs, null, null, null);
+			// "_id", "document_id", "doc_id", "revision", "filename", "length", "content_type", "stale", "content"
+			
+			while(cursor.moveToNext()) {
+				Attachment attachment = new Attachment(cursor.getString(4));
+				attachment.setAttachmentId(cursor.getInt(0));
+				attachment.setDocumentId(cursor.getInt(1));
+				attachment.setDocId(cursor.getString(2));
+				attachment.setRevision(cursor.getInt(3));
+				attachment.setLength(cursor.getInt(5));
+				attachment.setContentType(cursor.getString(6));
+				attachment.setStale(cursor.getInt(7) == 0 ? false : true);
+				if(fetchContent) attachment.setContent(cursor.getBlob(8));
+				
+				attachments.add(attachment);
+				
+				if(limit > 0 && attachments.size() == limit)
+					break;
+			}
+		}
+		finally {
+			if(cursor != null) cursor.close();
+			db.close();
+		}
+		return attachments;
+	}
+	
 	/**
 	 * Read an attachment from the local database.
 	 * @param database The database to read from
@@ -263,32 +364,26 @@ public class DatabaseStore implements Store {
 	 * @return The attachment object
 	 */
 	public Attachment getAttachment(Database database, Document document, String filename) {
-		Attachment attachment = null;
-		SQLiteDatabase db = this.dbHelper.getReadableDatabase();
-		Cursor cursor = null;
-
-		try {
-			String[] selectionArgs = { filename };
-			cursor = db.query("attachments", DB_ATTACHMENT_COLUMNS, "filename = ?", selectionArgs, null, null, null);
-			// "_id", "document_id", "doc_id", "revision", "filename", "length", "content_type", "stale", "content"
-
-			if(cursor.moveToNext()) {
-				attachment = new Attachment(cursor.getString(4));
-				attachment.setAttachmentId(cursor.getInt(0));
-				attachment.setDocumentId(cursor.getInt(1));
-				attachment.setDocId(cursor.getString(2));
-				attachment.setRevision(cursor.getInt(3));
-				attachment.setLength(cursor.getInt(5));
-				attachment.setContentType(cursor.getString(6));
-				attachment.setStale(cursor.getInt(7) == 0 ? false : true);
-				attachment.setContent(cursor.getBlob(8));
-			}
-		}
-		finally {
-			if(cursor != null) cursor.close();
-			db.close();
-		}
-		return attachment;
+		String[] selectionArgs = { Long.toString(document.getDocumentId()), filename };
+		List<Attachment> attachments = getAttachments("document_id = ? AND filename = ?", selectionArgs, 1, true);
+		return attachments.size() == 1 ? attachments.get(0) : null;
+	}
+	
+	/**
+	 * Read attachments from the local database.
+	 * @param database The database to read from
+	 * @param document The document to read attachments from
+	 * @return A list of attachments
+	 */
+	public List<Attachment> getAttachments(Database database, Document document) {
+		String[] selectionArgs = { Long.toString(document.getDocumentId()) };
+		return getAttachments("document_id = ?", selectionArgs, -1, true);
+	}
+	
+	public List<Attachment> getStaleAttachments(Database database) {
+		String[] selectionArgs = { Long.toString(database.getDatabaseId()) };
+		Log.d(TAG, "database id: " + database.getDatabaseId());
+		return getAttachments("stale = 1 AND document_id IN (SELECT _id FROM documents WHERE database_id = ?)", selectionArgs, -1, false);
 	}
 	
 	/**
@@ -345,14 +440,16 @@ public class DatabaseStore implements Store {
 		
 		ContentValues values = contentValuesDatabase(database);
 		SQLiteDatabase dbrw = this.dbHelper.getWritableDatabase();
-		dbrw.insert("databases", null, values);
+		long databaseId = dbrw.insert("databases", null, values);
 		dbrw.close();
 		
-		return database;
+		database.setDatabaseId(databaseId);
+		
+		return database;  // re-fetch database so we have the database id
 	}
 	
 	private void writeDatabaseSequenceId(SQLiteDatabase dbrw, Database database) {
-		String[] whereArgs = { Integer.toString(database.getDatabaseId()) };
+		String[] whereArgs = { Long.toString(database.getDatabaseId()) };
 		ContentValues values = new ContentValues();
 		values.put("sequence_id", database.getSequenceId());
 		dbrw.update("databases", values, "_id = ?", whereArgs);
@@ -398,29 +495,13 @@ public class DatabaseStore implements Store {
 		return values;
 	}
 	
-	/**
-	 * Find and return a list of all distinct document types in the store
-	 */
-	public List<String> getDocumentTypes(Database database) {
-		SQLiteDatabase db = this.dbHelper.getReadableDatabase();
-		Cursor cursor = db.query(true, "documents", DB_TYPE_COLUMN, null, null, null, null, null, null);
-		List<String> types = new ArrayList<String>();
-		
-		while(cursor.moveToNext()) {
-			types.add(cursor.getString(0));
-		}
-		return types;
-	}
-	
 	private class DbHelper extends SQLiteOpenHelper {
         static final String TAG = "DBHelper";
         static final int DB_VERSION = 1;
         static final String DB_NAME = "couchdbsyncer.db";
-        Context context;
 
         public DbHelper(Context context) {
         	super(context, DB_NAME, null, DB_VERSION);
-        	this.context = context;
         }
 
         // Called only once, first time the DB is created

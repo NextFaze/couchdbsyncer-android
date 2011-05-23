@@ -4,8 +4,9 @@ public class Attachment {
 
 	private byte[] content;
 	String filename, contentType, docId;
-	int revision, length, documentId, attachmentId;
 	boolean stale;
+	long attachmentId, documentId;
+	long length, revision;
 	
 	public Attachment(String filename) {
 		this.filename = filename;
@@ -13,7 +14,11 @@ public class Attachment {
 		this.documentId = -1;
 	}
 
-	public int getAttachmentId() {
+	public String toString() {
+		return filename;
+	}
+	
+	public long getAttachmentId() {
 		return attachmentId;
 	}
 
@@ -29,11 +34,11 @@ public class Attachment {
 		this.content = content;
 	}
 
-	public int getLength() {
+	public long getLength() {
 		return length;
 	}
 
-	public void setLength(int length) {
+	public void setLength(long length) {
 		this.length = length;
 	}
 
@@ -49,11 +54,11 @@ public class Attachment {
 		return filename;
 	}
 
-	public int getRevision() {
+	public long getRevision() {
 		return revision;
 	}
 
-	public void setRevision(int revision) {
+	public void setRevision(long revision) {
 		this.revision = revision;
 	}
 
@@ -65,11 +70,11 @@ public class Attachment {
 		this.contentType = contentType;
 	}
 
-	public int getDocumentId() {
+	public long getDocumentId() {
 		return documentId;
 	}
 
-	public void setDocumentId(int documentId) {
+	public void setDocumentId(long documentId) {
 		this.documentId = documentId;
 	}
 

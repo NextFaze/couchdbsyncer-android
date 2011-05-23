@@ -4,24 +4,24 @@ import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
-import java.util.HashSet;
+import java.util.Collection;
+import java.util.HashMap;
 import java.util.Map;
-import java.util.Set;
 
 import android.util.Log;
 
 public class Document {
 	public static final String TAG = "Document";
 
-	private int documentId, databaseId;
+	private long documentId, databaseId;
 	private String revision, parentId, type, tags, docId;
 	private boolean deleted;
 	private Map<String, Object> content;
-	private Set<Attachment> attachments;
+	private Map<String, Attachment> attachments;
 
 	public Document(String docId) {
 		this.docId = docId;
-		this.attachments = new HashSet<Attachment>();
+		this.attachments = new HashMap<String, Attachment>();
 	}
 
 	/**
@@ -44,11 +44,7 @@ public class Document {
 	}
 	
 	public Attachment getAttachment(String filename) {
-		for(Attachment attachment : attachments) {
-			if(attachment.getFilename().equals(filename))
-				return attachment;
-		}
-		return null;  // attachment not found
+		return attachments.get(filename);
 	}
 	
 	public String toString() {
@@ -57,19 +53,19 @@ public class Document {
 	
 	// accessors 
 	
-	public int getDatabaseId() {
+	public long getDatabaseId() {
 		return databaseId;
 	}
 
-	public void setDatabaseId(int databaseId) {
+	public void setDatabaseId(long databaseId) {
 		this.databaseId = databaseId;
 	}
 
-	public int getDocumentId() {
+	public long getDocumentId() {
 		return documentId;
 	}
 
-	public void setDocumentId(int documentId) {
+	public void setDocumentId(long documentId) {
 		this.documentId = documentId;
 	}
 
@@ -102,6 +98,7 @@ public class Document {
 		setContent(content, false);
 	}
 
+	@SuppressWarnings("unchecked")
 	public void setContent(Map<String, Object> content, boolean populateAttachments) {
 		String id = (String) content.get("_id");
 		if(!id.equals(getDocId())) {
@@ -119,14 +116,17 @@ public class Document {
 		if(populateAttachments) {
 			// populate attachment data from the _attachments hash
 			// "_attachments":{"image.jpg":{"content_type":"image/jpeg","revpos":2,"length":13138,"stub":true}}
-			Map<String, Map<String, Object>> attachments = (Map<String, Map<String, Object>>) get("_attachments");
-			if(attachments != null) {
-				for(String filename : attachments.keySet()) {
-					Map<String, Object> info = attachments.get(filename);
+			Map<String, Map<String, Object>> atts = (Map<String, Map<String, Object>>) get("_attachments");
+			if(atts != null) {
+				for(String filename : atts.keySet()) {
+					Map<String, Object> info = atts.get(filename);
 					Attachment attachment = new Attachment(filename);
 					attachment.setContentType((String) info.get("content_type"));
 					attachment.setRevision((Integer) info.get("revpos"));
 					attachment.setLength((Integer) info.get("length"));
+					
+					attachments.put(filename, attachment);
+					Log.d(TAG, "detected attachment: " + attachment);
 				}
 			}
 		}
@@ -182,12 +182,15 @@ public class Document {
 		return docId;
 	}
 
-	public Set<Attachment> getAttachments() {
-		return attachments;
+	public Collection<Attachment> getAttachments() {
+		return attachments.values();
 	}
 
-	public void setAttachments(Set<Attachment> attachments) {
-		this.attachments = attachments;
+	public void setAttachments(Collection<Attachment> attachments) {
+		this.attachments.clear();
+		for(Attachment attachment : attachments) {
+			this.attachments.put(attachment.getFilename(), attachment);
+		}
 	}
 	
 }

@@ -3,8 +3,8 @@ package au.com.team2moro.couchdbsyncer;
 import java.io.IOException;
 import java.net.URL;
 import java.util.Collection;
+import java.util.List;
 import java.util.Map;
-import java.util.Set;
 
 import android.util.Log;
 
@@ -16,6 +16,8 @@ public class Syncer {
     private Database database;
     private String username, password;
     private boolean aborted;
+    private BulkFetcher bulkFetcher;
+    private int documentsPerRequest;
     
 	public Syncer(Store store, Database database) {
 		this.store = store;
@@ -33,6 +35,7 @@ public class Syncer {
 		update(null);
 	}
 	
+	@SuppressWarnings("unchecked")
 	public void update(StoreDownloadPolicy policy) throws IOException {
 		
 		// fetch list of changes
@@ -45,7 +48,7 @@ public class Syncer {
          */
 		Log.d(TAG, "updating store");
 		
-		int sid = store.getSequenceId(database);
+		long sid = store.getSequenceId(database);
 		URL url = new URL(database.getUrl() + "/_changes?since=" + sid);
     	Fetcher fetcher = getFetcher();
 		Map<String, Object> changes = fetcher.fetchJSON(url);
@@ -55,7 +58,7 @@ public class Syncer {
 			return;
 		}
 		
-		Collection<Map> results = (Collection<Map>) changes.get("results");
+		Collection<Map<String, Object>> results = (Collection<Map<String, Object>>) changes.get("results");
 		Log.d(TAG, "results: " + results);
 
         // convert change list to document objects
@@ -71,7 +74,16 @@ public class Syncer {
         	updateDocument(document, seqId, policy);
         }
 
-		return;
+        // perform any outstanding bulk document fetches
+        performBulkFetch(policy);
+        
+        // download unfetched (stale) attachments
+        List<Attachment> unfetched = store.getStaleAttachments(database);
+        Log.d(TAG, unfetched.size() + " unfetched attachments");
+        for(Attachment attachment : unfetched) {
+        	Document document = store.getDocument(database, attachment.getDocId());
+        	updateAttachment(document, attachment, policy);
+        }
 	}
 	
 	public void updateDocument(Document document, int sequenceId) throws IOException {
@@ -95,31 +107,16 @@ public class Syncer {
     	
     	if(!download) return;  // policy says not to download document
 
-    	if(document.isDeleted()) {
-    		// document deleted 
-    		store.updateDocument(database, document, sequenceId);
-    	}
-    	else {
-    		// need to fetch document
-    		// TODO: use BulkFetcher
-        	Fetcher fetcher = getFetcher();
-    		URL documentURL = new URL(database.getUrl() + "/" + document.getDocId());
-    		Map<String, Object> object = fetcher.fetchJSON(documentURL);
-    		document.setContent(object, true);
-    		store.updateDocument(database, document, sequenceId);
+    	// need to fetch document
+    	// add to bulk fetch list
+    	// (we also add deleted documents to bulk fetcher to retain ordering. it returns documents ordered by sequence id)
+    	BulkFetcher bfetcher = getBulkFetcher();
+    	bfetcher.addDocument(document, sequenceId);
+    	if(documentsPerRequest > 0 && bfetcher.getFetchCount() == documentsPerRequest) {
+    		performBulkFetch(policy);
+    		bulkFetcher = null;  // reset bulk fetcher
     	}
 
-        // download unfetched attachments.
-        Set<Attachment> attachments = document.getAttachments();
-        if(attachments != null) {
-        	for(Attachment attachment : attachments) {
-        		if(!attachment.isStale()) continue;
-        		
-        		// stale attachment, download it
-        		updateAttachment(document, attachment, policy);
-        	}
-        }
-        
     	return;
 	}
 	
@@ -147,12 +144,13 @@ public class Syncer {
     	if(!download) return;  // policy says not to download attachment    	
         
         // fetch attachment
-    	URL attachmentURL = new URL(database.getUrl() + "/" + document.getDocumentId() + "/" + attachment.getFilename());
+    	URL attachmentURL = new URL(database.getUrl() + "/" + document.getDocId() + "/" + attachment.getFilename());
     	Fetcher fetcher = getFetcher();
     	byte[] content = fetcher.fetchBytes(attachmentURL);
 		attachment.setContent(content);
 		attachment.setLength(content.length);
 		store.updateAttachment(database, document, attachment);
+		countReq++;
 		
 		return; 
 	}
@@ -171,8 +169,43 @@ public class Syncer {
 		return 0; // TODO
 	}
 	
+	private void performBulkFetch(StoreDownloadPolicy policy) throws IOException {
+        BulkFetcher bfetcher = getBulkFetcher();
+        
+        if(bfetcher.getDocumentCount() == 0) return;
+
+        // perform bulk document fetch
+        List<SequencedDocument> documents = bfetcher.fetchDocuments(database.getUrl());
+        countReq++;
+        
+        for(SequencedDocument sdoc : documents) {
+        	Document document = sdoc.getDocument();
+        	// update document in the data store
+        	store.updateDocument(database, document, sdoc.getSequenceId());
+        	
+        	if(document.isDeleted()) continue;
+        	
+            // download unfetched (stale) attachments
+            Collection<Attachment> attachments = document.getAttachments();
+           	for(Attachment attachment : attachments) {
+           		Log.d(TAG, "attachment: " + attachment + ", stale: " + attachment.isStale());
+           		if(!attachment.isStale()) continue;
+
+           		// stale attachment, download it
+           		updateAttachment(document, attachment, policy);
+            }
+        }
+	}
+	
 	private Fetcher getFetcher() {
 		Fetcher fetcher = new Fetcher(username, password);
 		return fetcher;
+	}
+
+	private BulkFetcher getBulkFetcher() {
+		if(bulkFetcher == null) {
+			bulkFetcher = new BulkFetcher(username, password);
+		}
+		return bulkFetcher;
 	}
 }
