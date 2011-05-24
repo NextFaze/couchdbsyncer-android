@@ -27,7 +27,9 @@ public class TestApplication extends Application {
 	
 	public Credentials getDatabaseCredentials(Database database) {
 		SharedPreferences pref = getSharedPreferences(getCredentialsPreferenceKey(database), MODE_PRIVATE);
-		return new Credentials(pref.getString("username", null), pref.getString("password", null));
+		String username = pref.getString("username", null);
+		String password = pref.getString("password", null);
+		return (username != null && password != null) ? new Credentials(username, password) : null;
 	}
 	
 	public void setDatabaseCredentials(Database database, Credentials credentials) {

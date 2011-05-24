@@ -23,8 +23,8 @@ public class BulkFetcher extends Fetcher {
 		this.deleted = new ArrayList<Document>();
 		this.sequenceMap = new HashMap<String, Integer>();
 	}
-	public BulkFetcher(String username, String password) {
-		super(username, password);
+	public BulkFetcher(Credentials credentials) {
+		super(credentials);
 		this.documents = new ArrayList<Document>();
 		this.deleted = new ArrayList<Document>();
 		this.sequenceMap = new HashMap<String, Integer>();
@@ -65,7 +65,6 @@ public class BulkFetcher extends Fetcher {
 	    	String docId = (String) row.get("id");
 	    	Document document = new Document(docId);
 	    	document.setContent(object, true);  // populate attachments
-
 	    	addResult(results, document);
 	    }
 	    

@@ -37,3 +37,7 @@ content_type TEXT,
 stale BOOLEAN,
 UNIQUE (document_id, filename)
 );
+
+-- SPLIT
+
+CREATE INDEX attachments_doc_id_filename_idx ON attachments(doc_id, filename);

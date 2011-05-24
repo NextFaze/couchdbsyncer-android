@@ -22,7 +22,7 @@ public class DocumentTypeListActivity extends BaseListActivity {
 		String type = types.get(position);
 		Intent intent = new Intent(this, DocumentListActivity.class);
         intent.putExtra("database_name", database.getName());
-        intent.putExtra("type", type);
+        if(type != types.get(types.size() - 1)) intent.putExtra("type", type);
         startActivity(intent);
 	}
 
@@ -45,6 +45,7 @@ public class DocumentTypeListActivity extends BaseListActivity {
     
 	private void updateListView() {
 		types = dbstore.getDocumentTypes(database);
+    	types.add("Undefined Type");
     	
        	// create the grid item mapping
        	ArrayAdapter<String> aa = new ArrayAdapter<String>(this, android.R.layout.simple_list_item_1, types);

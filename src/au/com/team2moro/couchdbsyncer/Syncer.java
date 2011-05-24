@@ -5,38 +5,59 @@ import java.net.URL;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
+import java.util.Observable;
 
 import android.util.Log;
 
-public class Syncer {
+public class Syncer extends Observable {
 	private static final String TAG = "Syncer";
 	
     private int countReq, countReqDoc, countReqAtt, countFin, countFinAtt, countFinDoc, countHttp;
-    private Store store;
+    private DatabaseStore store;
     private Database database;
-    private String username, password;
+    private Credentials credentials;
     private boolean aborted;
     private BulkFetcher bulkFetcher;
     private int documentsPerRequest;
-    
-	public Syncer(Store store, Database database) {
+    private boolean changed, finished;
+
+    /**
+     * Create a new Syncer object that will sync the given Database in the given DatabaseStore
+     * @param store The DatabaseStore to sync
+     * @param database The Database to sync
+     */
+	public Syncer(DatabaseStore store, Database database) {
 		this.store = store;
 		this.database = database;
 		this.aborted = false;
 	}
 	
-	public Syncer(Store store, Database database, String username, String password) {
+    /**
+     * Create a new Syncer object that will sync the given Database in the given DatabaseStore, using the given credentials for http authentication.
+     * @param store The DatabaseStore to sync
+     * @param database The Database to sync
+     */
+	public Syncer(DatabaseStore store, Database database, Credentials credentials) {
 		this(store, database);
-		this.username = username;
-		this.password = password;
+		this.credentials = credentials;
 	}
 	
+	/**
+	 * Runs an update against the remote CouchDB database.
+	 * @throws IOException
+	 */
 	public void update() throws IOException {
 		update(null);
 	}
 	
+	/**
+	 * Runs an update against the remote CouchDB database, using the given download policy.
+	 * @param policy
+	 * @throws IOException
+	 */
 	@SuppressWarnings("unchecked")
-	public void update(StoreDownloadPolicy policy) throws IOException {
+	public void update(DownloadPolicy policy) throws IOException {
+		finished = false;
 		
 		// fetch list of changes
         // example changes data:
@@ -78,19 +99,20 @@ public class Syncer {
         performBulkFetch(policy);
         
         // download unfetched (stale) attachments
+        // these might have failed to download from a previous sync
         List<Attachment> unfetched = store.getStaleAttachments(database);
         Log.d(TAG, unfetched.size() + " unfetched attachments");
         for(Attachment attachment : unfetched) {
         	Document document = store.getDocument(database, attachment.getDocId());
         	updateAttachment(document, attachment, policy);
         }
+        
+        finished = true;
+        changed = true;
+        notifyObservers();
 	}
 	
-	public void updateDocument(Document document, int sequenceId) throws IOException {
-		updateDocument(document, sequenceId, null);
-	}
-	
-	public void updateDocument(Document document, int sequenceId, StoreDownloadPolicy policy) throws IOException {
+	private void updateDocument(Document document, int sequenceId, DownloadPolicy policy) throws IOException {
     	boolean download = !document.isDesignDocument();
     	int priority = Thread.NORM_PRIORITY;
     	Log.d(TAG, "update document: " + document.getDocId());
@@ -118,15 +140,9 @@ public class Syncer {
     		performBulkFetch(policy);
     		bulkFetcher = null;  // reset bulk fetcher
     	}
-
-    	return;
-	}
-	
-	public void updateAttachment(Document document, Attachment attachment) throws IOException {
-		updateAttachment(document, attachment, null);
 	}
 
-	public void updateAttachment(Document document, Attachment attachment, StoreDownloadPolicy policy) throws IOException {
+	private void updateAttachment(Document document, Attachment attachment, DownloadPolicy policy) throws IOException {
     	boolean download = true;
     	int priority = 4;  //  lower priority than normal
 
@@ -157,7 +173,9 @@ public class Syncer {
 		store.updateAttachment(database, document, attachment);
 		countFin++;
 		countFinAtt++;
-		
+		changed = true;
+    	notifyObservers();
+
 		return;
 	}
 	
@@ -165,17 +183,31 @@ public class Syncer {
 		return null;  // TODO
 	}
 
-	public float getProgress() {
-		return countReq == 0 ? 0 : (float)countFin / countReq;
-	}
-	public float getProgressDocuments() {
-		return countReqDoc == 0 ? 0 : (float)countFinDoc / countReqDoc;
-	}
-	public float getProgressAttachments() {
-		return countReqAtt == 0 ? 0 : (float)countFinAtt / countReqAtt;
+	/**
+	 * Returns the overall download progress as a number between 0 and 1
+	 * @return the overall download progress
+	 */
+	public double getProgress() {
+		return countReq == 0 ? 0 : (double)countFin / countReq;
 	}
 	
-	private void performBulkFetch(StoreDownloadPolicy policy) throws IOException {
+	/**
+	 * Returns the download progress for documents as a number between 0 and 1
+	 * @return the download progress for documents
+	 */
+	public double getProgressDocuments() {
+		return countReqDoc == 0 ? 0 : (double)countFinDoc / countReqDoc;
+	}
+	
+	/**
+	 * Returns the download progress for attachments as a number between 0 and 1
+	 * @return the download progress for attachments
+	 */
+	public double getProgressAttachments() {
+		return countReqAtt == 0 ? 0 : (double)countFinAtt / countReqAtt;
+	}
+	
+	private void performBulkFetch(DownloadPolicy policy) throws IOException {
         BulkFetcher bfetcher = getBulkFetcher();
         
         if(bfetcher.getDocumentCount() == 0) return;
@@ -183,13 +215,15 @@ public class Syncer {
         // perform bulk document fetch
         List<SequencedDocument> documents = bfetcher.fetchDocuments(database.getUrl());
         countHttp++;
-        
+
         for(SequencedDocument sdoc : documents) {
         	Document document = sdoc.getDocument();
         	// update document in the data store
         	store.updateDocument(database, document, sdoc.getSequenceId());
         	countFin++;
         	countFinDoc++;
+    		changed = true;
+        	notifyObservers();
         	
         	if(document.isDeleted()) continue;
         	
@@ -206,15 +240,26 @@ public class Syncer {
 	}
 	
 	private Fetcher getFetcher() {
-		Fetcher fetcher = new Fetcher(username, password);
+		Fetcher fetcher = new Fetcher(credentials);
 		return fetcher;
 	}
 
 	private BulkFetcher getBulkFetcher() {
 		if(bulkFetcher == null) {
-			bulkFetcher = new BulkFetcher(username, password);
+			bulkFetcher = new BulkFetcher(credentials);
 		}
 		return bulkFetcher;
 	}
 
+	public boolean hasChanged() {
+		return changed;
+	}
+	
+	protected void clearChanged() {
+		changed = false;
+	}
+	
+	public boolean isFinished() {
+		return finished;
+	}
 }

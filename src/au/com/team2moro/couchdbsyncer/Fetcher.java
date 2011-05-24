@@ -5,8 +5,8 @@ import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStreamWriter;
+import java.net.HttpURLConnection;
 import java.net.URL;
-import java.net.URLConnection;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Iterator;
@@ -25,14 +25,13 @@ public class Fetcher {
 	
 	private static final String TAG = "Fetcher";
 	private static final int BUFFER_SIZE = 8196;
-	private String username, password;
+	private Credentials credentials;
 	
 	public Fetcher() {
 	}
 
-	public Fetcher(String username, String password) {
-		this.username = username;
-		this.password = password;
+	public Fetcher(Credentials credentials) {
+		this.credentials = credentials;
 	}
 
 	public byte[] fetchBytes(URL url) throws IOException {
@@ -42,10 +41,10 @@ public class Fetcher {
 	public byte[] fetchBytes(URL url, String body) throws IOException {
 
 		Log.d(TAG, "fetching URL: " + url);
-		URLConnection urlConnection = url.openConnection();
-		
-		if(username != null && password != null) {
-			String userpass = username + ":" + password;
+		HttpURLConnection urlConnection = (HttpURLConnection)url.openConnection();
+
+		if(credentials != null) {
+			String userpass = credentials.getUsername() + ":" + credentials.getPassword();
 			String basicAuth = "Basic " + new String(new Base64().encode(userpass.getBytes()));
 			urlConnection.setRequestProperty ("Authorization", basicAuth);
 		}
@@ -76,6 +75,12 @@ public class Fetcher {
 	      offset += bytesRead;
 	    }
 	    in.close();
+
+	    // problem: couchdb returns 200 OK even when not authorized...
+	    // if unauthorized, the fetcher will die later trying to parse the html as json
+	    if(urlConnection.getResponseCode() != HttpURLConnection.HTTP_OK) {
+	    	throw new IOException(url + " response code: " + urlConnection.getResponseCode());
+	    }
 	    
 	    //Log.d(TAG, "returning byte array");
 	    return byteStream.toByteArray();
@@ -141,7 +146,7 @@ public class Fetcher {
 		}
 		else {
 			//Log.d(TAG, "parsing type: " + object.getClass().getName());
-			result = object;
+			result = (object == JSONObject.NULL) ? null : object;
 		}
 		
 		//Log.d(TAG, "result: " + result);

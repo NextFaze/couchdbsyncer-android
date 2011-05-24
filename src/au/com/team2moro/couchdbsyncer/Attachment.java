@@ -3,10 +3,10 @@ package au.com.team2moro.couchdbsyncer;
 public class Attachment {
 
 	private byte[] content;
-	String filename, contentType, docId;
-	boolean stale;
-	long attachmentId, documentId;
-	long length, revision;
+	private String filename, contentType, docId;
+	private boolean stale;
+	private long attachmentId, documentId;
+	private long length, revision;
 	
 	public Attachment(String filename) {
 		this.filename = filename;
@@ -18,11 +18,21 @@ public class Attachment {
 		return filename;
 	}
 	
+	// override equals (used in Set functionality in DatabaseStore)
+	public boolean equals(Object other) {
+		if(!(other instanceof Attachment)) return false;
+		return this.filename.equals(((Attachment)other).filename);
+	}
+	
+	public int hashCode() {
+		return this.filename.hashCode();
+	}
+	
 	public long getAttachmentId() {
 		return attachmentId;
 	}
 
-	public void setAttachmentId(int attachmentId) {
+	public void setAttachmentId(long attachmentId) {
 		this.attachmentId = attachmentId;
 	}
 
@@ -84,6 +94,10 @@ public class Attachment {
 
 	public void setStale(boolean stale) {
 		this.stale = stale;
+	}
+	
+	public boolean isImage() {
+		return contentType.startsWith("image/");
 	}
 	
 }

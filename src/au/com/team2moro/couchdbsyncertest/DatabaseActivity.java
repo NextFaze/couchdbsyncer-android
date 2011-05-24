@@ -14,6 +14,7 @@ import android.widget.ProgressBar;
 import android.widget.TextView;
 import au.com.team2moro.couchdbsyncer.Database;
 import au.com.team2moro.couchdbsyncer.DatabaseStore;
+import au.com.team2moro.couchdbsyncer.SyncerService;
 
 public class DatabaseActivity extends Activity implements OnClickListener {
 	public static final String TAG = "DatabaseActivity";
@@ -88,7 +89,7 @@ public class DatabaseActivity extends Activity implements OnClickListener {
 		case R.id.button2:
 			// sync database
 			// start SyncerService
-			intent = new Intent(this, SyncerService.class);
+			intent = new Intent(this, TestSyncerService.class);
 			intent.putExtra("database_name", database.getName());
 			startService(intent);
 			break;
@@ -109,13 +110,19 @@ public class DatabaseActivity extends Activity implements OnClickListener {
 	class SyncerReceiver extends BroadcastReceiver {
 		@Override
 		public void onReceive(Context context, Intent intent) {
-			Log.d("SyncerReceiver", "onReceive");
-			float progress = intent.getFloatExtra("progress", 0);
-			float progressDocuments = intent.getFloatExtra("progressDocuments", 0);
-			float progressAttachments = intent.getFloatExtra("progressAttachments", 0);
-			progressBars[0].setProgress((int)(progress * 100));
-			progressBars[1].setProgress((int)(progressDocuments * 100));
-			progressBars[2].setProgress((int)(progressAttachments * 100));
+			double progress = 100 * intent.getDoubleExtra(SyncerService.SYNCER_PROGRESS_OVERALL, 0.0);
+			double progressDocuments = 100 * intent.getDoubleExtra(SyncerService.SYNCER_PROGRESS_DOCUMENTS, 0.0);
+			double progressAttachments = 100 * intent.getDoubleExtra(SyncerService.SYNCER_PROGRESS_ATTACHMENTS, 0.0);
+			boolean finished = intent.getBooleanExtra(SyncerService.SYNCER_FINISHED, false);
+			long sequenceId = intent.getLongExtra(SyncerService.SYNCER_SEQUENCE_ID, 0);
+			progressBars[0].setProgress((int)progressDocuments);
+			progressBars[1].setProgress((int)progressAttachments);			
+			progressBars[2].setProgress((int)progress);
+	        textView[3].setText(Long.toString(sequenceId));
+
+	        database.setSequenceId(sequenceId);
+			if(finished) updateView();  // update number of documents etc
+			Log.d("SyncerReceiver", String.format("syncer updated. progress: %.1f%%, %.1f%%, %.1f%%", progressDocuments, progressAttachments, progress));
 		}
 	}
 }

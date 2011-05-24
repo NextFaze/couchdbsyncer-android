@@ -4,8 +4,11 @@ import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
+import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collection;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 import android.util.Log;
@@ -14,16 +17,18 @@ public class Document {
 	private static final String TAG = "Document";
 
 	private long documentId, databaseId;
-	private String revision, parentId, type, tags, docId;
+	private String revision, parentId, type, docId;
 	private boolean deleted;
+	private List<String> tags;
 	private Map<String, Object> content;
 	private Map<String, Attachment> attachments;
 
 	public Document(String docId) {
 		this.docId = docId;
 		this.attachments = new HashMap<String, Attachment>();
+		this.tags = new ArrayList<String>();
 	}
-
+	
 	/**
 	 * @return true if this is a design document, false otherwise
 	 */
@@ -110,7 +115,7 @@ public class Document {
 
 		setRevision(getString("_rev"));
 		setType(getString("type"));
-		setTags(getString("tags"));
+		setTags(get("tags"));
 		setParentId(getString("parent_id"));
 
 		if(populateAttachments) {
@@ -124,25 +129,30 @@ public class Document {
 					attachment.setContentType((String) info.get("content_type"));
 					attachment.setRevision((Integer) info.get("revpos"));
 					attachment.setLength((Integer) info.get("length"));
+					attachment.setDocId(getDocId());
+					attachment.setDocumentId(getDocumentId());
 					
 					attachments.put(filename, attachment);
-					Log.d(TAG, "detected attachment: " + attachment);
+					//Log.d(TAG, "detected attachment: " + attachment);
 				}
 			}
 		}
 	}
 
+	// set content from serialised hash data
 	@SuppressWarnings("unchecked")
-	public void setContent(byte[] content) {
+	protected void setContent(byte[] content) {
 		try {
 			ByteArrayInputStream bis = new ByteArrayInputStream(content);
 			ObjectInputStream ois = new ObjectInputStream(bis);
 			Map<String, Object> data = (Map<String, Object>) ois.readObject();
 			ois.close();
 			
-			setContent(data);
+			setContent(data, true);  // populate attachments
 		} catch(Exception e) {
+			// error deserialising object
 			Log.d(TAG, e.toString());
+			this.content = null;
 		}
 	}
 
@@ -170,12 +180,36 @@ public class Document {
 		this.type = type;
 	}
 
-	public String getTags() {
+	public List<String> getTags() {
 		return tags;
+	}
+	
+	// return tags separated by spaces
+	public String getTagsString() {
+		StringBuffer sbuf = new StringBuffer();
+		for(String tag : tags) {
+			sbuf.append(tag);
+			sbuf.append(" ");
+		}
+		return sbuf.toString();
+	}
+
+	@SuppressWarnings("unchecked")
+	public void setTags(Object tags) {
+		if(tags instanceof List) {
+			setTags((List<String>)tags);
+		} else if(tags instanceof String) {
+			setTags((String)tags);
+		}
 	}
 
 	public void setTags(String tags) {
-		this.tags = tags;
+		String[] tagArray = tags.split("[\\s\\t]+");
+		this.tags = Arrays.asList(tagArray);
+	}
+	
+	public void setTags(List<String> tags) {
+		this.tags = new ArrayList<String>(tags);
 	}
 
 	public String getDocId() {
