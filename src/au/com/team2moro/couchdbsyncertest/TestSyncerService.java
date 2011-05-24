@@ -1,25 +1,25 @@
 package au.com.team2moro.couchdbsyncertest;
 
+import android.util.Log;
 import au.com.team2moro.couchdbsyncer.Credentials;
 import au.com.team2moro.couchdbsyncer.DatabaseStore;
 import au.com.team2moro.couchdbsyncer.SyncerService;
 
 public class TestSyncerService extends SyncerService {
-
-	TestApplication application;
+	public static final String TAG = "TestSyncerService";
 	
 	public TestSyncerService() {
 		super();
-		this.application = (TestApplication) getApplication();
 	}
 	
 	protected DatabaseStore getDatabaseStore() {
-		DatabaseStore dbstore = application.getDatabaseStore();
+		Log.d(TAG, "application = " + ((TestApplication) getApplication()));
+		DatabaseStore dbstore = ((TestApplication) getApplication()).getDatabaseStore();
 		return dbstore;
 	}
 	
 	protected Credentials getCredentials() {
-		Credentials credentials = application.getDatabaseCredentials(getDatabase());
+		Credentials credentials = ((TestApplication) getApplication()).getDatabaseCredentials(getDatabase());
 		return credentials;
 	}
 }
