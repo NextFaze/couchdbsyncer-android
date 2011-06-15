@@ -3,11 +3,16 @@ couchdbsyncer-android
 
 syncs couchdb databases from the server, saving documents and attachments locally in an sqlite database.
 
-Installation
-------------
+Adding to your project
+----------------------
 
-create a jar from au.com.team2moro.couchdbsyncer (include au.com.team2moro.couchdbsyncer.data), and add to your Android project.
+Reference the couchdbsyncer-android project as a library (Properties -> Android -> Library -> Add in eclipse) and reference libs/*.jar as external jars.
+Alternatively, create a jar from au.com.team2moro.couchdbsyncer (include au.com.team2moro.couchdbsyncer.data), and add to your Android project.
 
+You must have the following line in your AndroidManifest.xml:
+
+    <uses-permission android:name="android.permission.INTERNET"></uses-permission>
+    
 Usage
 -----
 
@@ -17,7 +22,7 @@ a Syncer object is used to download changes from a remote CouchDB database to th
 
 SyncerService can be subclassed to provide a IntentService to run a syncer update. At minimum your subclass must provide an implementation for the abstract getDatabaseStore() method.
 
-See also the au.com.team2moro.couchdbsyncertest application for an example application.
+See also the au.com.team2moro.couchdbsyncerexample application for an example application.
 
 Synopsis
 --------

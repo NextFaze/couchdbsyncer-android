@@ -155,8 +155,8 @@ public class Syncer extends Observable {
             return;  // do nothing.
         }
     	if(policy != null) {
-    		download = policy.getAttachmentDownload(attachment);
-    		if(download) priority = policy.getAttachmentPriority(attachment);
+    		download = policy.getAttachmentDownload(document, attachment);
+    		if(download) priority = policy.getAttachmentPriority(document, attachment);
     	}
     	
     	if(!download) return;  // policy says not to download attachment    	

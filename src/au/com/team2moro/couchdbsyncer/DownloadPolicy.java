@@ -4,10 +4,11 @@ public interface DownloadPolicy {
 
 	/**
 	 * Return the download policy for the given attachment. The default policy is to download all attachments.
+	 * @param document the document containing the attachment to be downloaded
 	 * @param attachment the attachment to be downloaded
 	 * @return true to download the attachment, false otherwise.  If false, metadata for the attachment is still saved and available locally, but the content is not downloaded from the server.
 	 */
-	public boolean getAttachmentDownload(Attachment attachment);
+	public boolean getAttachmentDownload(Document document, Attachment attachment);
 
 	/**
 	 * Return the download policy for the given document. The default policy is to download all documents except design documents.
@@ -18,10 +19,11 @@ public interface DownloadPolicy {
 	
 	/**
 	 * Return the download thread priority for the given attachment
+	 * @param document the document containing the attachment to be downloaded
 	 * @param attachment the attachment to be downloaded
 	 * @return an integer between Thread.MIN_PRIORITY and Thread.MAX_PRIORITY
 	 */
-	public int getAttachmentPriority(Attachment attachment);
+	public int getAttachmentPriority(Document document, Attachment attachment);
 
 	/**
 	 * Return the download thread priority for the given document
