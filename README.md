@@ -37,15 +37,15 @@ create a DatabaseStore and a Database to sync to (this will probably happen in y
     public void onCreate() {
         super.onCreate();
         
-	// create a new database store.
-	// if SHIPPED_DB is newer than the internal database or the
-	// internal database does not exist, SHIPPED_DB is installed
-	// as the current database.
-	dbstore = new DatabaseStore(this, SHIPPED_DB);
+        // create a new database store.
+        // if SHIPPED_DB is newer than the internal database or the
+        // internal database does not exist, SHIPPED_DB is installed
+        // as the current database.
+        dbstore = new DatabaseStore(this, SHIPPED_DB);
 
-	// get the database DB_NAME.  updates the database url to the given URL.
-	// creates a new local database record if it has not been created yet.
-	database = dbstore.getDatabase(DB_NAME, new URL(DB_URL));
+        // get the database DB_NAME.  updates the database url to the given URL.
+        // creates a new local database record if it has not been created yet.
+        database = dbstore.getDatabase(DB_NAME, new URL(DB_URL));
     }
     public DatabaseStore getDatabaseStore() {
         return dbstore;
