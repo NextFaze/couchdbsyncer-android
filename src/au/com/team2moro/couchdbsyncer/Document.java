@@ -48,6 +48,39 @@ public class Document {
 		return (String) get(key);
 	}
 	
+	/**
+	 * Fetch a double field value from the document
+	 * @param key The name of the field to fetch
+	 * @param defaultValue The value to return if the field is not defined
+	 * @return The double value
+	 */
+	public double getDouble(String key, double defaultValue) {
+		Object value = get(key);
+		if(value == null) return defaultValue;
+		if(value instanceof String) return Double.parseDouble((String)value);
+		else if(value instanceof Number) return ((Number)value).doubleValue();
+		return defaultValue;
+	}
+	
+	/**
+	 * Fetch a integer field value from the document
+	 * @param key The name of the field to fetch
+	 * @param defaultValue The value to return if the field is not defined
+	 * @return The integer value
+	 */
+	public int getInt(String key, int defaultValue) {
+		Object value = get(key);
+		if(value == null) return defaultValue;
+		if(value instanceof String) return Integer.parseInt((String)value);
+		else if(value instanceof Number) return ((Number)value).intValue();
+		return defaultValue;
+	}
+	
+	/**
+	 * Fetch an attachment by filename
+	 * @param filename The filename of the attachment to fetch
+	 * @return an Attachment object.
+	 */	
 	public Attachment getAttachment(String filename) {
 		return attachments.get(filename);
 	}

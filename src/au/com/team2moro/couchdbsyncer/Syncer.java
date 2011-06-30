@@ -110,6 +110,7 @@ public class Syncer extends Observable {
         finished = true;
         changed = true;
         notifyObservers();
+        Log.d(TAG, "sync finished");
 	}
 	
 	private void updateDocument(Document document, int sequenceId, DownloadPolicy policy) throws IOException {

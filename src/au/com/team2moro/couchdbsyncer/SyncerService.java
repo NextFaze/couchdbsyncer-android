@@ -39,9 +39,7 @@ public abstract class SyncerService extends IntentService {
 	 * Get the database store to synchronize.
 	 * @return the DatabaseStore object to sync
 	 */
-	protected DatabaseStore getDatabaseStore() {
-		return null;
-	}
+	protected abstract DatabaseStore getDatabaseStore();
 	
 	/**
 	 * Get the database to synchronize.  This is initialised based on the "database_name" string extra sent to the IntentService.
