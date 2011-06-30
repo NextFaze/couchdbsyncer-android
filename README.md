@@ -29,16 +29,23 @@ Synopsis
 
 create a DatabaseStore and a Database to sync to (this will probably happen in your Application class)
 
+    public static final String DB_NAME = "my_database_name";
+    public static final String SHIPPED_DB = "my_db.sqlite";   // in assets folder
+    public static final String DB_URL = "http://example.com:5984/db_name";
+
     @Override
     public void onCreate() {
         super.onCreate();
         
-        dbstore = new DatabaseStore(this);
-        database = dbstore.getDatabase("my_database_name");
-        if(database == null) {
-            // create database
-            database = dbstore.addDatabase("my_database_name", "http://example.com:5984/db_name");
-        }
+	// create a new database store.
+	// if SHIPPED_DB is newer than the internal database or the
+	// internal database does not exist, SHIPPED_DB is installed
+	// as the current database.
+	dbstore = new DatabaseStore(this, SHIPPED_DB);
+
+	// get the database DB_NAME.  updates the database url to the given URL.
+	// creates a new local database record if it has not been created yet.
+	database = dbstore.getDatabase(DB_NAME, new URL(DB_URL));
     }
     public DatabaseStore getDatabaseStore() {
         return dbstore;

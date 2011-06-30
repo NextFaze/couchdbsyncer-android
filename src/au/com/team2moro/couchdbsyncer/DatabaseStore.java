@@ -1,8 +1,12 @@
 package au.com.team2moro.couchdbsyncer;
 
 import java.io.BufferedReader;
+import java.io.File;
+import java.io.FileOutputStream;
+import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
+import java.io.OutputStream;
 import java.net.MalformedURLException;
 import java.net.URL;
 import java.util.ArrayList;
@@ -12,6 +16,8 @@ import java.util.Set;
 
 import android.content.ContentValues;
 import android.content.Context;
+import android.content.pm.ApplicationInfo;
+import android.content.pm.PackageManager;
 import android.database.Cursor;
 import android.database.sqlite.SQLiteDatabase;
 import android.database.sqlite.SQLiteOpenHelper;
@@ -21,6 +27,7 @@ import android.util.Log;
 public class DatabaseStore {
 	private static final String TAG = "DatabaseStore";
 	private DbHelper dbHelper;
+	private Context context;
 	
 	private static final String[] DB_DATABASE_COLUMNS = { "_id", "name", "sequence_id", "doc_del_count", "db_name", "url" };
 	private static final String[] DB_DOCUMENT_COLUMNS = { "_id", "doc_id", "database_id", "revision", "content", "parent_id", "type", "tags" };
@@ -30,7 +37,29 @@ public class DatabaseStore {
 
 	public DatabaseStore(Context context) {
 		context = context.getApplicationContext();
+		this.context = context;
 		this.dbHelper = new DbHelper(context);
+	}
+	
+	public DatabaseStore(Context context, String shippedPath) {
+		this(context);
+		
+		// install shipped database if appropriate
+		try {
+			File fileDatabase = new File(getDatabasePath());
+			long installationTime = getInstallationTime();
+			
+			Log.d(TAG, String.format("internal db: %s (modified %d), installation time %d",
+					fileDatabase.getPath(), fileDatabase.lastModified(), installationTime));
+			Log.d(TAG, "new database: " + dbHelper.isNewDatabase());
+			
+			if(dbHelper.isNewDatabase() || (fileDatabase.lastModified() < installationTime)) {
+				// internal db does not exist or the shipped database is newer
+				installDatabase(shippedPath);
+			}
+		} catch (IOException e) {
+			Log.d(TAG, "could not install shipped database", e);
+		}
 	}
 	
 	public void close() {
@@ -506,6 +535,38 @@ public class DatabaseStore {
 	}
 	
 	/**
+	 * Returns the database with the given name.
+	 * If the database is not found locally, creates a new empty database with the given name and url.
+	 * The URL of the database is updated to the given url, if it differs.
+	 * @param name The name of the database
+	 * @param url The URL of the database, used in creating the database if it does not exist.
+	 * @return
+	 */
+	public synchronized Database getDatabase(String name, URL url) {
+		Database database = getDatabase(name);
+		if(database == null && url != null) {
+			// add database
+			database = addDatabase(name, url);
+		}
+		
+		if(database != null && database.getUrl() != url) {
+			// update database url
+			Log.d(TAG, "updating database url to: " + url);
+			String[] whereArgs = { Long.toString(database.getDatabaseId()) };
+			ContentValues values = new ContentValues();
+			values.put("url", url.toString());
+			SQLiteDatabase dbrw = null;
+			try { 
+				dbrw = this.dbHelper.getWritableDatabase();
+				dbrw.update("databases", values, "_id = ?", whereArgs);
+			} finally {
+				if(dbrw != null) dbrw.close();
+			}
+		}
+		return database;
+	}
+	
+	/**
 	 * Add a new database to the store
 	 * @param name The name of the new database
 	 * @param url The URL of the remote couchDB database
@@ -524,6 +585,66 @@ public class DatabaseStore {
 		return database;  // re-fetch database so we have the database id
 	}
 	
+	// return the path to the internal sqlite database
+	private String getDatabasePath() {
+		String dbPath = null;
+		SQLiteDatabase db = null;
+		try {
+			db = this.dbHelper.getReadableDatabase();
+			dbPath = db.getPath();
+		} catch(Exception e) {
+			Log.d(TAG, "error getting internal database path", e);
+		} finally {
+			if(db != null) db.close();
+		}
+		return dbPath;
+	}
+	
+	private long getInstallationTime() {
+		try {
+			PackageManager pm = context.getPackageManager();
+			ApplicationInfo appInfo = pm.getApplicationInfo(context.getPackageName(), 0);
+			File appFile = new File(appInfo.sourceDir);
+			return appFile.lastModified();
+		} catch(PackageManager.NameNotFoundException e) {
+			Log.d(TAG, "could not find installation time", e);
+		}
+		return -1;
+	}
+	
+	/**
+	 * Install the database at path as the new DatabaseStore database.
+	 * The database at the given path is copied to the internal DatabaseStore path, overwriting the existing database (if it exists).
+	 * @param path The path to the sqlite database containing pre-synced data.
+	 */
+	public synchronized void installDatabase(String path) throws IOException {
+		// get path to internal database
+		String dbPath = getDatabasePath();		
+		if(dbPath == null) return;  // could not find path
+		
+		// close existing database
+		dbHelper.close();
+		this.dbHelper = null;
+
+		// copy shipped database path to internal sqlite database path
+		Log.d(TAG, "installing shipped database " + path + " to " + dbPath);
+		InputStream myInput = context.getAssets().open(path);
+		OutputStream myOutput = new FileOutputStream(dbPath);
+
+		byte[] buffer = new byte[1024];
+		int length;
+		while ((length = myInput.read(buffer)) > 0) {
+			myOutput.write(buffer, 0, length);
+		}
+
+		myOutput.flush();
+		myOutput.close();
+		myInput.close();
+		
+		// create a new dbhelper
+		this.dbHelper = new DbHelper(this.context);
+	}
+
 	private void writeDatabaseSequenceId(SQLiteDatabase dbrw, Database database) {
 		String[] whereArgs = { Long.toString(database.getDatabaseId()) };
 		ContentValues values = new ContentValues();
@@ -575,11 +696,14 @@ public class DatabaseStore {
         static final String TAG = "DBHelper";
         static final int DB_VERSION = 1;
         static final String DB_NAME = "couchdbsyncer.db";
-
+        
+        private boolean newDatabase = false;
+        
         public DbHelper(Context context) {
+        	
         	super(context, DB_NAME, null, DB_VERSION);
         }
-
+        
         // Called only once, first time the DB is created
         @Override
         public void onCreate(SQLiteDatabase db) {
@@ -591,6 +715,12 @@ public class DatabaseStore {
             	Log.d(TAG, "onCreate sql: " + table);
         		db.execSQL(table);
         	}
+        	
+        	newDatabase = true;
+        }
+        
+        public boolean isNewDatabase() {
+        	return newDatabase;
         }
 
         @Override
