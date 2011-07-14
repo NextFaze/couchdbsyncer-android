@@ -28,10 +28,10 @@ public abstract class SyncerService extends IntentService {
 	}
 	
 	/**
-	 * Get the credentials to use to synchronize with the remote database.  Returns null by default
-	 * @return the credentials
+	 * Get the connection settings to use to synchronize with the remote database.  Returns null by default
+	 * @return the connection settings
 	 */
-	protected Credentials getCredentials() {
+	protected ConnectionSettings getConnectionSettings() {
 		return null;
 	}
 	
@@ -76,7 +76,7 @@ public abstract class SyncerService extends IntentService {
 		}
 
 		try {
-			syncer = new Syncer(dbstore, database, getCredentials());
+			syncer = new Syncer(dbstore, database, getConnectionSettings());
 			syncer.addObserver(new SyncerObserver());
 			syncer.update(getDownloadPolicy());
 			syncer.deleteObservers();

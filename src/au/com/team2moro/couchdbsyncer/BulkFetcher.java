@@ -1,6 +1,7 @@
 package au.com.team2moro.couchdbsyncer;
 
 import java.io.IOException;
+import java.net.HttpURLConnection;
 import java.net.URL;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -23,8 +24,8 @@ public class BulkFetcher extends Fetcher {
 		this.deleted = new ArrayList<Document>();
 		this.sequenceMap = new HashMap<String, Integer>();
 	}
-	public BulkFetcher(Credentials credentials) {
-		super(credentials);
+	public BulkFetcher(ConnectionSettings connectionSettings) {
+		super(connectionSettings);
 		this.documents = new ArrayList<Document>();
 		this.deleted = new ArrayList<Document>();
 		this.sequenceMap = new HashMap<String, Integer>();
@@ -51,6 +52,12 @@ public class BulkFetcher extends Fetcher {
 	 */
 	public int getFetchCount() {
 		return documents.size();
+	}
+
+	protected HttpURLConnection getConnection(URL url) throws IOException {
+		HttpURLConnection urlConnection = super.getConnection(url);
+		urlConnection.setRequestProperty("Content-Type", "application/json");
+		return urlConnection;
 	}
 
 	@SuppressWarnings("unchecked")

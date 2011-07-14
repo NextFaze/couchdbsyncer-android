@@ -1,19 +1,20 @@
 package au.com.team2moro.couchdbsyncer;
 
 import java.net.URL;
+import java.util.Date;
 
 public class Database {
 	private URL url;
 	private String name, dbName;
-	private long sequenceId, docDelCount, docUpdateSeq;
+	private long sequenceId, docDelCount;
 	private long databaseId;
+	private Date lastSyncDate;
 	
 	public Database(String name, URL url) {
 		this.name = name;
 		this.url = url;
 		this.sequenceId = 0;
 		this.docDelCount = 0;
-		this.docUpdateSeq = 0;
 		this.databaseId = -1;
 	}
 
@@ -65,13 +66,11 @@ public class Database {
 		this.docDelCount = docDelCount;
 	}
 
-	public long getDocUpdateSeq() {
-		return docUpdateSeq;
+	public Date getLastSyncDate() {
+		return lastSyncDate;
 	}
 
-	public void setDocUpdateSeq(long docUpdateSeq) {
-		this.docUpdateSeq = docUpdateSeq;
+	public void setLastSyncDate(Date lastSyncDate) {
+		this.lastSyncDate = lastSyncDate;
 	}
-
-	
 }

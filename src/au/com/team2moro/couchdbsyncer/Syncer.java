@@ -3,6 +3,7 @@ package au.com.team2moro.couchdbsyncer;
 import java.io.IOException;
 import java.net.URL;
 import java.util.Collection;
+import java.util.Date;
 import java.util.List;
 import java.util.Map;
 import java.util.Observable;
@@ -15,7 +16,7 @@ public class Syncer extends Observable {
     private int countReq, countReqDoc, countReqAtt, countFin, countFinAtt, countFinDoc, countHttp;
     private DatabaseStore store;
     private Database database;
-    private Credentials credentials;
+    private ConnectionSettings connectionSettings;
     private boolean aborted;
     private BulkFetcher bulkFetcher;
     private int documentsPerRequest;
@@ -36,12 +37,13 @@ public class Syncer extends Observable {
      * Create a new Syncer object that will sync the given Database in the given DatabaseStore, using the given credentials for http authentication.
      * @param store The DatabaseStore to sync
      * @param database The Database to sync
+     * @param credentials Connection credentials
      */
-	public Syncer(DatabaseStore store, Database database, Credentials credentials) {
+	public Syncer(DatabaseStore store, Database database, ConnectionSettings connectionSettings) {
 		this(store, database);
-		this.credentials = credentials;
+		this.connectionSettings = connectionSettings;
 	}
-	
+
 	/**
 	 * Runs an update against the remote CouchDB database.
 	 * @throws IOException
@@ -68,10 +70,32 @@ public class Syncer extends Observable {
          "last_seq":2}
          */
 		Log.d(TAG, "updating store");
+    	Fetcher fetcher = getFetcher();
+
+		// get database information
+		Map<String, Object> dbInfo = fetcher.fetchJSON(database.getUrl());
+		if(dbInfo != null) {
+			Log.d(TAG, "db info: " + dbInfo.toString());
+			Integer delCount = (Integer) dbInfo.get("doc_del_count");
+			Integer updateSeq = (Integer) dbInfo.get("update_seq");
+			String dbName = (String) dbInfo.get("db_name");
+			
+			if((delCount != null && delCount < database.getDocDelCount()) ||
+					(updateSeq != null && updateSeq < database.getSequenceId())) {
+				Log.d(TAG, "lower deletion count or sequence id on server - purging database");
+				store.purge(database);
+			} else if(dbName != null && !dbName.equals(database.getDbName())) {
+				Log.d(TAG, "database name changed - purging database");
+				store.purge(database);
+			}
+			
+			database.setDbName(dbName);
+			database.setDocDelCount(delCount);
+		}
 		
+		// get change list		
 		long sid = store.getSequenceId(database);
 		URL url = new URL(database.getUrl() + "/_changes?since=" + sid);
-    	Fetcher fetcher = getFetcher();
 		Map<String, Object> changes = fetcher.fetchJSON(url);
 		if(changes == null) {
 			// no changes
@@ -109,6 +133,9 @@ public class Syncer extends Observable {
         
         finished = true;
         changed = true;
+        database.setLastSyncDate(new Date());
+        store.updateDatabase(database);
+        
         notifyObservers();
         Log.d(TAG, "sync finished");
 	}
@@ -241,13 +268,13 @@ public class Syncer extends Observable {
 	}
 	
 	private Fetcher getFetcher() {
-		Fetcher fetcher = new Fetcher(credentials);
+		Fetcher fetcher = new Fetcher(connectionSettings);
 		return fetcher;
 	}
 
 	private BulkFetcher getBulkFetcher() {
 		if(bulkFetcher == null) {
-			bulkFetcher = new BulkFetcher(credentials);
+			bulkFetcher = new BulkFetcher(connectionSettings);
 		}
 		return bulkFetcher;
 	}

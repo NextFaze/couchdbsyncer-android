@@ -9,7 +9,10 @@ import java.io.InputStreamReader;
 import java.io.OutputStream;
 import java.net.MalformedURLException;
 import java.net.URL;
+import java.text.ParseException;
+import java.text.SimpleDateFormat;
 import java.util.ArrayList;
+import java.util.Date;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
@@ -29,7 +32,7 @@ public class DatabaseStore {
 	private DbHelper dbHelper;
 	private Context context;
 	
-	private static final String[] DB_DATABASE_COLUMNS = { "_id", "name", "sequence_id", "doc_del_count", "db_name", "url" };
+	private static final String[] DB_DATABASE_COLUMNS = { "_id", "name", "sequence_id", "doc_del_count", "db_name", "last_sync", "url" };
 	private static final String[] DB_DOCUMENT_COLUMNS = { "_id", "doc_id", "database_id", "revision", "content", "parent_id", "type", "tags" };
 	private static final String[] DB_ATTACHMENT_CONTENT_COLUMNS = { "_id", "document_id", "doc_id", "revision", "filename", "length", "content_type", "stale", "content" };
 	private static final String[] DB_ATTACHMENT_COLUMNS = { "_id", "document_id", "doc_id", "revision", "filename", "length", "content_type", "stale" };
@@ -46,15 +49,16 @@ public class DatabaseStore {
 		
 		// install shipped database if appropriate
 		try {
-			File fileDatabase = new File(getDatabasePath());
-			long installationTime = getInstallationTime();
+			File fileDatabase = new File(getDatabasePath()); // couchdbsyncer sqlite database file
+			long installationTime = getInstallationTime();   // time app was installed
+			long dbModifiedTime = fileDatabase.lastModified();
 			
 			Log.d(TAG, String.format("internal db: %s (modified %d), installation time %d",
-					fileDatabase.getPath(), fileDatabase.lastModified(), installationTime));
+					fileDatabase.getPath(), dbModifiedTime, installationTime));
 			Log.d(TAG, "new database: " + dbHelper.isNewDatabase());
 			
-			if(dbHelper.isNewDatabase() || (fileDatabase.lastModified() < installationTime)) {
-				// internal db does not exist or the shipped database is newer
+			if(dbHelper.isNewDatabase() || (dbModifiedTime < installationTime)) {
+				// internal db does not exist or the shipped database (within the app) is newer
 				installDatabase(shippedPath);
 			}
 		} catch (IOException e) {
@@ -96,7 +100,7 @@ public class DatabaseStore {
 				dbrw.delete("databases", "_id = ?", whereArgs);
 			} else {
 				database.setSequenceId(0);
-				writeDatabaseSequenceId(dbrw, database);
+				writeDatabase(dbrw, database);
 			}
 			dbrw.setTransactionSuccessful();
 		} finally {
@@ -205,7 +209,7 @@ public class DatabaseStore {
 			
 			// update sequence Id
 			database.setSequenceId(sequenceId);
-			writeDatabaseSequenceId(dbrw, database);
+			writeDatabase(dbrw, database);
 			dbrw.setTransactionSuccessful();
 		} finally {
 			dbrw.endTransaction();
@@ -395,7 +399,7 @@ public class DatabaseStore {
 			dbrw.beginTransaction();
 			dbrw.delete("documents", "_id = ?", whereArgs);
 			dbrw.delete("attachments", "document_id = ?", whereArgs);
-			writeDatabaseSequenceId(dbrw, database);
+			writeDatabase(dbrw, database);
 			dbrw.setTransactionSuccessful();
 		} finally {
 			dbrw.endTransaction();
@@ -492,13 +496,14 @@ public class DatabaseStore {
 		SQLiteDatabase db = dbHelper.getReadableDatabase();
 		List<Database> databases = new ArrayList<Database>();
 		Cursor cursor = null;
-		
+		SimpleDateFormat dateFormat = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
+
 		try {
 			cursor = db.query("databases", DB_DATABASE_COLUMNS, null, null, null, null, null);
 
 			while(cursor.moveToNext()) {
 				String name = cursor.getString(1);
-				String urlStr = cursor.getString(5);
+				String urlStr = cursor.getString(6);
 				URL url = null;
 				try {
 					url = new URL(urlStr);
@@ -510,7 +515,17 @@ public class DatabaseStore {
 				database.setDatabaseId(cursor.getInt(0));
 				database.setSequenceId(cursor.getInt(2));
 				database.setDocDelCount(cursor.getInt(3));
+				database.setDbName(cursor.getString(4));
 
+				String lastSync = cursor.getString(5);
+				if(lastSync != null) {
+					try {
+						database.setLastSyncDate(dateFormat.parse(lastSync));
+					} catch (ParseException e) {
+						Log.e(TAG, "Parsing ISO8601 datetime failed", e);
+					}
+				}
+				
 				databases.add(database);
 			}
 		} finally {
@@ -552,16 +567,8 @@ public class DatabaseStore {
 		if(database != null && database.getUrl() != url) {
 			// update database url
 			Log.d(TAG, "updating database url to: " + url);
-			String[] whereArgs = { Long.toString(database.getDatabaseId()) };
-			ContentValues values = new ContentValues();
-			values.put("url", url.toString());
-			SQLiteDatabase dbrw = null;
-			try { 
-				dbrw = this.dbHelper.getWritableDatabase();
-				dbrw.update("databases", values, "_id = ?", whereArgs);
-			} finally {
-				if(dbrw != null) dbrw.close();
-			}
+			database.setUrl(url);
+			updateDatabase(database);
 		}
 		return database;
 	}
@@ -620,7 +627,7 @@ public class DatabaseStore {
 	public synchronized void installDatabase(String path) throws IOException {
 		// get path to internal database
 		String dbPath = getDatabasePath();		
-		if(dbPath == null) return;  // could not find path
+		if(dbPath == null || path == null) return;  // could not find internal path or db path is null
 		
 		// close existing database
 		dbHelper.close();
@@ -645,20 +652,41 @@ public class DatabaseStore {
 		this.dbHelper = new DbHelper(this.context);
 	}
 
-	private void writeDatabaseSequenceId(SQLiteDatabase dbrw, Database database) {
+	/**
+	 * Save changes to the database record to the data store.
+	 * @param database Database to save
+	 */
+	public synchronized void updateDatabase(Database database) {
+		SQLiteDatabase dbrw = null;
+		try { 
+			dbrw = this.dbHelper.getWritableDatabase();
+			writeDatabase(dbrw, database);
+		} finally {
+			if(dbrw != null) dbrw.close();
+		}
+	}
+	
+	private void writeDatabase(SQLiteDatabase dbrw, Database database) {
 		String[] whereArgs = { Long.toString(database.getDatabaseId()) };
-		ContentValues values = new ContentValues();
-		values.put("sequence_id", database.getSequenceId());
+		ContentValues values = contentValuesDatabase(database);
+		Log.d(TAG, "database values: " + values.toString());
 		dbrw.update("databases", values, "_id = ?", whereArgs);
 	}
 	
 	private ContentValues contentValuesDatabase(Database database) {
 		ContentValues values = new ContentValues();
+		Date lastSync = database.getLastSyncDate();
+
 		values.put("name", database.getName());
 		values.put("url", database.getUrl().toString());
 		values.put("sequence_id", database.getSequenceId());
 		values.put("doc_del_count", database.getDocDelCount());
 		values.put("db_name", database.getDbName());
+		
+		if(lastSync != null) {
+			SimpleDateFormat dateFormat = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss"); 
+			values.put("last_sync", dateFormat.format(lastSync));
+		}
 		
 		return values;
 	}

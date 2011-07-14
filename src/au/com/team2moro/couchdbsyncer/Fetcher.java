@@ -13,6 +13,10 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 
+import javax.net.ssl.HostnameVerifier;
+import javax.net.ssl.HttpsURLConnection;
+import javax.net.ssl.SSLSocketFactory;
+
 import org.apache.commons.codec.binary.Base64;
 import org.json.JSONArray;
 import org.json.JSONException;
@@ -25,29 +29,47 @@ public class Fetcher {
 	
 	private static final String TAG = "Fetcher";
 	private static final int BUFFER_SIZE = 8196;
-	private Credentials credentials;
+	private ConnectionSettings connectionSettings;
 	
 	public Fetcher() {
 	}
 
-	public Fetcher(Credentials credentials) {
-		this.credentials = credentials;
+	public Fetcher(ConnectionSettings connectionSettings) {
+		this.connectionSettings = connectionSettings;
 	}
-
+	
 	public byte[] fetchBytes(URL url) throws IOException {
 		return fetchBytes(url, null);
 	}
 
+	protected HttpURLConnection getConnection(URL url) throws IOException {
+		HttpURLConnection urlConnection = (HttpURLConnection)url.openConnection();
+		
+		if (urlConnection instanceof HttpsURLConnection && connectionSettings != null) {
+			HttpsURLConnection httpsUrlConnection = (HttpsURLConnection) urlConnection;
+			SSLSocketFactory sslSocketFactory = connectionSettings.getSSLSocketFactory();
+			HostnameVerifier verifier = connectionSettings.getHostnameVerifier();
+			if(sslSocketFactory != null) {
+				httpsUrlConnection.setSSLSocketFactory(sslSocketFactory);
+			}
+			if(verifier != null) {
+				httpsUrlConnection.setHostnameVerifier(verifier);
+			}
+		}
+
+		if(connectionSettings != null) {
+			String userpass = connectionSettings.getUsername() + ":" + connectionSettings.getPassword();
+			String basicAuth = "Basic " + new String(new Base64().encode(userpass.getBytes()));
+			urlConnection.setRequestProperty("Authorization", basicAuth);
+		}
+		
+		return urlConnection;
+	}
+	
 	public byte[] fetchBytes(URL url, String body) throws IOException {
 
 		Log.d(TAG, "fetching URL: " + url);
-		HttpURLConnection urlConnection = (HttpURLConnection)url.openConnection();
-
-		if(credentials != null) {
-			String userpass = credentials.getUsername() + ":" + credentials.getPassword();
-			String basicAuth = "Basic " + new String(new Base64().encode(userpass.getBytes()));
-			urlConnection.setRequestProperty ("Authorization", basicAuth);
-		}
+		HttpURLConnection urlConnection = getConnection(url);
 		
 		if(body != null) {
 			Log.d(TAG, "body: " + body);

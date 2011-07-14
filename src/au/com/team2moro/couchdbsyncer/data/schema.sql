@@ -3,9 +3,9 @@ _id INTEGER PRIMARY KEY AUTOINCREMENT,
 name TEXT,
 sequence_id INTEGER,
 doc_del_count INTEGER,
-doc_update_seq INTEGER,
 db_name TEXT,
 url TEXT,
+last_sync DATETIME,
 UNIQUE (name)
 );
 
