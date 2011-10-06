@@ -82,6 +82,10 @@ public abstract class SyncerService extends IntentService {
 			syncer.deleteObservers();
 		} catch(Exception e) {
 			Log.d(TAG, "syncer error: " + getStackTraceAsString(e));
+			//send a broadcast so they know its failed
+			Intent intent = new Intent(SYNCER_PROGRESS_INTENT);
+			intent.putExtra(SYNCER_FINISHED, true);
+			sendBroadcast(intent);
 		}
 	}
 
