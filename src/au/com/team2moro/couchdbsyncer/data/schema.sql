@@ -9,8 +9,6 @@ last_sync DATETIME,
 UNIQUE (name)
 );
 
--- SPLIT
-
 CREATE TABLE documents (
 _id INTEGER PRIMARY KEY AUTOINCREMENT,
 database_id INTEGER,  
@@ -22,8 +20,6 @@ type TEXT,
 tags TEXT,
 UNIQUE (database_id, doc_id)
 );
-
--- SPLIT
 
 CREATE TABLE attachments (
 _id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -38,6 +34,11 @@ stale BOOLEAN,
 UNIQUE (document_id, filename)
 );
 
--- SPLIT
-
 CREATE INDEX attachments_doc_id_filename_idx ON attachments(doc_id, filename);
+CREATE INDEX databases_name_idx on databases(name);
+CREATE INDEX databases_url_idx on databases(url);
+CREATE INDEX documents_database_id_idx on documents(database_id);
+CREATE INDEX documents_type_idx on documents(type);
+CREATE INDEX documents_parent_id_idx on documents(parent_id);
+CREATE INDEX attachments_document_id_idx on attachments(document_id);
+CREATE INDEX attachments_filename_idx on attachments(filename);

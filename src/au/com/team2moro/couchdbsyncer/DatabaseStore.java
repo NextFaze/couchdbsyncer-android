@@ -300,7 +300,7 @@ public class DatabaseStore {
 		SQLiteDatabase db = this.dbHelper.getReadableDatabase();
 		List<Document> documents = new ArrayList<Document>();
 		Cursor cursor = null;
-		
+
 		try {
 			//query(String table, String[] columns, String selection, String[] selectionArgs, String groupBy, String having, String orderBy)
 			//Query the given table, returning a Cursor over the result set.
@@ -737,11 +737,10 @@ public class DatabaseStore {
         public void onCreate(SQLiteDatabase db) {
         	Log.d(TAG, "onCreate");
         	String sql = readFile("data/schema.sql");
-        	String[] tables = sql.split("-- SPLIT");
-        	Log.d(TAG, "table count: " + tables.length);
-        	for(String table : tables) {
-            	Log.d(TAG, "onCreate sql: " + table);
-        		db.execSQL(table);
+        	String[] statements = sql.split(";");
+        	for(String statement : statements) {
+            	Log.d(TAG, "onCreate sql: " + statement);
+        		db.execSQL(statement + ";");
         	}
         	
         	newDatabase = true;
